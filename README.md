@@ -4,19 +4,18 @@ A web app for a retail chain. When stores expect heavy footfall on weekends, hol
 
 Software Engineering Lab mini project, Section B, Team 14.
 
-| Name | SRN |
-|---|---|
-| Bhuvan Kumar P | PES1UG24AM069 |
-| Vivek Varma | PES1UG24AM070 |
-| Dhanush Shankar Reddy | PES1UG24AM083 |
-| Aamer Khan | PES1UG24AM902 |
+## Team
+| Name | SRN | Role | Document lead |
+|---|---|---|---|
+| Aamer Khan | PES1UG24AM902 | Product Owner | SRS |
+| Bhuvan Kumar P | PES1UG24AM069 | Test Engineer | SRS |
+| Vivek Varma | PES1UG24AM070 | Developer | SAD |
+| Dhanush Shankar Reddy | PES1UG24AM083 | Scrum Master / QA Lead | Test Plan |
 
 ## Deliverables
-| Document | Lead |
-|---|---|
-| [Software Requirements Specification](SRS_SAD_TestPlan/SRS_Helping_Hands.pdf) | Aamer Khan, Bhuvan Kumar P |
-| [Software Architecture & Design](SRS_SAD_TestPlan/SAD_Helping_Hands.pdf) | Vivek Varma |
-| [Software Test Plan](SRS_SAD_TestPlan/Test_Plan_Helping_Hands.pdf) | Dhanush Shankar Reddy |
+- [Software Requirements Specification (SRS)](SRS_SAD_TestPlan/SRS_Helping_Hands.pdf)
+- [Software Architecture and Design Specification (SAD)](SRS_SAD_TestPlan/SAD_Helping_Hands.pdf)
+- [Software Test Plan (STP)](SRS_SAD_TestPlan/Test_Plan_Helping_Hands.pdf)
 
 ## Planned tech stack
 | Layer | Technology |
