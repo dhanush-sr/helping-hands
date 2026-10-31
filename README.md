@@ -185,6 +185,24 @@ Rules:
 
 Signed in as the admin, the frontend shows a Stores page (add a store, assign or clear its manager, deactivate) and a Busy periods page (add one, see the list).
 
+## Posting shifts
+
+HH-15 (HH-F-007, HH-F-008). `POST /api/v1/shifts`, store managers only, shaped as in the SAD (camelCase, store-local date and times in IST, stored in UTC):
+
+```json
+{"storeId": 1, "busyPeriodId": 1, "date": "2026-11-07", "startTime": "10:00",
+ "endTime": "14:00", "task": "Billing counter", "slotsNeeded": 3, "notes": "Festive rush"}
+```
+
+Returns 201 `{"shiftId": 27, "status": "OPEN", "freeSlots": 3}`. `busyPeriodId` and `notes` are optional. Refused with 400 when:
+- the end time isn't after the start time (`INVALID_SHIFT_TIMES`); overnight shifts aren't supported
+- the shift starts in the past (`SHIFT_IN_PAST`)
+- volunteers needed isn't between 1 and 100 (`INVALID_SLOTS`)
+- the busy period doesn't exist or doesn't include the date (`INVALID_BUSY_PERIOD`, `OUTSIDE_BUSY_PERIOD`)
+- the store is deactivated (`STORE_INACTIVE`)
+
+Another store's id gives 403 `STORE_FORBIDDEN`, an unknown one 404, and any role other than store manager 403 `FORBIDDEN`. Signed in as a store manager, the frontend shows a Post a shift form.
+
 ## Run the frontend locally
 
 Needs Node.js 20 or newer.

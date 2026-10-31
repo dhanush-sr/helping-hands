@@ -1,9 +1,10 @@
 """HH-12 role and store checks: TC-AUTH-03, TC-AUTH-04, sign-up scope and deny by default.
 
-The shift and sign-up endpoints arrive with HH-15, HH-22 and HH-24. Until then these tests
-add small stand-in endpoints to a copy of the app, wired the way the real ones must be
-(a ``require_*`` role check plus the store-scope helpers). When a real endpoint lands, point
-its test here at it and delete the stand-in.
+Posting a shift uses the real endpoint (HH-15). Editing shifts and deciding or withdrawing
+sign-ups arrive with HH-22, HH-24 and HH-26; until then these tests add small stand-in
+endpoints to a copy of the app, wired the way the real ones must be (a ``require_*`` role
+check plus the store-scope helpers). When a real endpoint lands, point its test here at it
+and delete the stand-in.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -54,14 +55,6 @@ USERS = {
 # --- stand-in endpoints, shaped like SAD 4.3 -----------------------------------------------
 
 
-class ShiftIn(BaseModel):
-    store_id: int
-    task: str = Field(min_length=1, max_length=120)
-    starts_at: datetime
-    ends_at: datetime
-    slots: int = Field(ge=1)
-
-
 class ShiftEdit(BaseModel):
     slots: int = Field(ge=1)
 
@@ -72,23 +65,6 @@ class Decision(BaseModel):
 
 def stand_in_router() -> APIRouter:
     router = APIRouter(prefix="/api/v1")
-
-    @router.post("/shifts", status_code=201)
-    def post_shift(
-        body: ShiftIn, user: User = Depends(require_manager), db: Session = Depends(get_db)
-    ) -> dict:
-        store = access.get_store_in_scope(db, user, body.store_id)
-        shift = Shift(
-            store=store,
-            task=body.task,
-            starts_at=body.starts_at,
-            ends_at=body.ends_at,
-            slots=body.slots,
-            created_by_id=user.id,
-        )
-        db.add(shift)
-        db.commit()
-        return {"shiftId": shift.id}
 
     @router.patch("/shifts/{shift_id}", dependencies=[Depends(require_manager)])
     def edit_shift(
@@ -205,12 +181,14 @@ def as_user(client):
 
 
 def new_shift_body(store_id: int) -> dict:
+    """A valid POST /api/v1/shifts body (SAD format), always a week in the future."""
     return {
-        "store_id": store_id,
+        "storeId": store_id,
+        "date": (datetime.now(UTC) + timedelta(days=7)).date().isoformat(),
+        "startTime": "14:00",
+        "endTime": "18:00",
         "task": "Restocking shelves",
-        "starts_at": "2026-11-08T14:00:00+05:30",
-        "ends_at": "2026-11-08T18:00:00+05:30",
-        "slots": 3,
+        "slotsNeeded": 3,
     }
 
 

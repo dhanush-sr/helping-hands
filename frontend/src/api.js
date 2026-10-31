@@ -86,3 +86,8 @@ export function listBusyPeriods() {
 export function createBusyPeriod(period) {
   return request('/api/v1/busy-periods', { method: 'POST', body: period, auth: true })
 }
+
+// Shifts (HH-15). Body and response use the SAD's camelCase names.
+export function createShift(shift) {
+  return request('/api/v1/shifts', { method: 'POST', body: shift, auth: true })
+}
