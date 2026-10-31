@@ -34,7 +34,8 @@ body {
   margin: 0 0 8px;
 }
 
-input {
+input,
+textarea {
   padding: 10px 12px;
   font: inherit;
   border: 1px solid #c4c9d0;

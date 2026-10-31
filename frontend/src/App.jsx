@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getCurrentUser, getHealth, getToken, signOut } from './api.js'
 import AdminPanel from './AdminPanel.jsx'
 import LoginForm from './LoginForm.jsx'
+import ShiftForm from './ShiftForm.jsx'
 
 const ROLE_LABELS = {
   VOLUNTEER: 'Volunteer',
@@ -50,6 +51,7 @@ function App() {
         </section>
       )}
       {user?.role === 'ADMIN' && <AdminPanel />}
+      {user?.role === 'STORE_MANAGER' && <ShiftForm />}
 
       <section className="card status" aria-live="polite">
         <h2>Backend status</h2>
