@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_session, get_current_user
+from app.api.deps import get_current_session, require_any_role
 from app.config import get_settings
 from app.db.session import get_db
 from app.models import AuthSession, User, UserRole
@@ -44,7 +44,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> LoginResponse:
     )
 
 
-@router.post("/logout", status_code=204)
+@router.post("/logout", status_code=204, dependencies=[Depends(require_any_role)])
 def logout(
     session: AuthSession = Depends(get_current_session), db: Session = Depends(get_db)
 ) -> Response:
@@ -53,5 +53,5 @@ def logout(
 
 
 @router.get("/me", response_model=UserOut)
-def me(user: User = Depends(get_current_user)) -> User:
+def me(user: User = Depends(require_any_role)) -> User:
     return user

@@ -34,7 +34,9 @@ backend/
   app/
     main.py            FastAPI app factory (CORS, routers)
     config.py          settings from HH_* environment variables
+    api/deps.py        shared dependencies: sign-in, role and store-scope checks
     api/v1/            versioned endpoints (router.py collects them)
+    services/          business rules (auth.py sign-in, access.py roles and store scope)
     db/                declarative base, engine, get_db session dependency
     models/            SQLAlchemy models
   alembic/             migrations (alembic.ini in backend/)
@@ -132,7 +134,34 @@ Rules:
 - A session ends after 30 minutes without a request (401 `SESSION_EXPIRED`), after 12 hours, or on sign-out.
 - Passwords are stored only as bcrypt hashes; passwords and tokens are never logged.
 
-The frontend shows a sign-in form, keeps the token in `sessionStorage` (cleared when the tab closes) and has a Sign out button. Protect a new endpoint with `user: User = Depends(get_current_user)` from `app/api/deps.py`.
+The frontend shows a sign-in form, keeps the token in `sessionStorage` (cleared when the tab closes) and has a Sign out button.
+
+## Roles and store access
+
+HH-12 (HH-F-002, HH-SR-004). Every check runs on the server, on every request, and denies by default; hiding a button in the UI is never the protection.
+
+- **Role.** Each endpoint names the roles allowed to call it with a dependency from `app/api/deps.py`: `require_volunteer`, `require_manager`, `require_admin`, `require_manager_or_admin`, `require_any_role`, or `require_role(...)` for another mix. Any other role gets 403 `FORBIDDEN`, before the request body is even looked at.
+- **Store scope.** A store manager can only change their own store and its shifts and sign-ups; anything else is 403 `STORE_FORBIDDEN`. Admins work across all stores (where the role check lets them in). Volunteers can only act on their own sign-ups. An id that doesn't exist is 404 (`STORE_NOT_FOUND`, `SHIFT_NOT_FOUND`, `SIGNUP_NOT_FOUND`).
+
+```python
+from app.api.deps import require_manager, shift_in_scope
+from app.services import access
+
+@router.post("/shifts", status_code=201)
+def post_shift(body: ShiftIn, user: User = Depends(require_manager), db: Session = Depends(get_db)):
+    store = access.get_store_in_scope(db, user, body.store_id)   # 404 or 403 if not theirs
+    ...
+
+@router.patch("/shifts/{shift_id}", dependencies=[Depends(require_manager)])
+def edit_shift(body: ShiftEdit, shift: Shift = Depends(shift_in_scope), db: Session = Depends(get_db)):
+    ...   # shift is already checked to belong to this manager's store
+```
+
+`signup_in_scope` does the same for `/signups/{signup_id}`. The rules live in `app/services/access.py`.
+
+`tests/test_access.py` fails if any endpoint other than `GET /api/v1/health` and `POST /api/v1/auth/login` is missing a sign-in and role check, so a new endpoint can't ship unprotected. It also holds TC-AUTH-03 and TC-AUTH-04, run against stand-in shift and sign-up endpoints until HH-15, HH-22 and HH-24 add the real ones.
+
+All errors, including unknown routes (404), wrong methods (405) and invalid input (422 `VALIDATION_ERROR`), come back as `{"code": "...", "message": "..."}`. Validation messages name the field and the rule but never echo the submitted value.
 
 ## Run the frontend locally
 
