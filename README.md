@@ -35,6 +35,9 @@ backend/
     main.py            FastAPI app factory (CORS, routers)
     config.py          settings from HH_* environment variables
     api/v1/            versioned endpoints (router.py collects them)
+    db/                declarative base, engine, get_db session dependency
+    models/            SQLAlchemy models
+  alembic/             migrations (alembic.ini in backend/)
   tests/               pytest tests
   requirements.txt     runtime dependencies
   requirements-dev.txt test and lint tools
@@ -59,6 +62,12 @@ uvicorn app.main:app --reload
 
 - API: http://localhost:8000/api/v1/health → `{"status": "ok", ...}`
 - Interactive docs: http://localhost:8000/docs
+
+Create the database (SQLite file `backend/helping_hands.db` by default):
+
+```bash
+alembic upgrade head
+```
 
 Tests and lint:
 
@@ -90,15 +99,45 @@ Backend settings are read from environment variables with the `HH_` prefix, or f
 | Variable          | Default                       | Meaning                          |
 |-------------------|-------------------------------|----------------------------------|
 | `HH_ENVIRONMENT`  | `local`                       | shown by the health endpoint     |
+| `HH_DATABASE_URL` | `sqlite:///./helping_hands.db`| SQLAlchemy URL (see below)       |
 | `HH_CORS_ORIGINS` | `["http://localhost:5173"]`   | JSON list of allowed origins     |
 
 Frontend: `VITE_API_BASE_URL` (build time) when the API is on a different host.
+
+## Database
+
+SQLAlchemy 2 models live in `backend/app/models/`, migrations in `backend/alembic/versions/`.
+The same migrations run on SQLite (local) and PostgreSQL (CI and deployed environments):
+
+```bash
+export HH_DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/helping_hands
+alembic upgrade head
+```
+
+| Table          | Holds                                                                 |
+|----------------|-----------------------------------------------------------------------|
+| `users`        | email (unique), name, bcrypt password hash, role (`VOLUNTEER`, `STORE_MANAGER`, `ADMIN`), active flag, failed-login count and lock time |
+| `stores`       | name (unique), location, one store manager, active flag                |
+| `busy_periods` | name, start date, end date (end not before start)                      |
+| `shifts`       | store, optional busy period, task, start/end time (end after start), slots (at least 1), status (`OPEN`, `FILLED`, `CANCELLED`, `COMPLETED`) |
+| `signups`      | shift + volunteer (unique pair), status (`REQUESTED`, `CONFIRMED`, `DECLINED`, `WITHDRAWN`), who decided and when |
+| `settings`     | admin-editable rules: `weekly_hour_limit` 8, `min_notice_hours` 12, `withdrawal_cutoff_hours` 24 (inserted by the first migration) |
+
+Attendance, notifications and the audit history are added in Sprint 2.
+
+After changing a model, generate a migration and review it before committing:
+
+```bash
+alembic revision --autogenerate -m "describe the change"
+alembic upgrade head
+```
 
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
 
-- **Backend:** install, `ruff check`, `pytest`
+- **Backend:** install, `ruff check`, `pytest` (models + migrations on SQLite and a
+  PostgreSQL 16 service), then `alembic upgrade head` / `downgrade base` on PostgreSQL
 - **Frontend:** install, `npm run lint`, `npm run build`
 
 A failing test or lint error turns the pull request check red. Protect `main` in
