@@ -109,6 +109,31 @@ Shifts for the sign-up edge cases (their description says which test they are fo
 Times are store times (IST); the database stores them in UTC. Volunteers 11 to 30 each have
 one pending request on a regular shift, so managers have something to approve.
 
+## Sign in
+
+Endpoints (HH-11). Every other endpoint will need the token as `Authorization: Bearer <token>`.
+
+| Method and path | Does |
+|---|---|
+| `POST /api/v1/auth/login` | body `{"email": "...", "password": "..."}`; returns `access_token`, `token_type`, `idle_timeout_minutes` and the `user` (id, email, full name, role) |
+| `GET /api/v1/auth/me` | the signed-in user |
+| `POST /api/v1/auth/logout` | ends the session (204) |
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@helpinghands.example", "password": "Admin@123"}'
+```
+
+Rules:
+- Wrong email and wrong password both return 401 `INVALID_CREDENTIALS`, so the response never says which one was wrong.
+- 5 wrong passwords in a row lock the account for 15 minutes (423 `ACCOUNT_LOCKED`).
+- A deactivated account gets 403 `ACCOUNT_DISABLED`.
+- A session ends after 30 minutes without a request (401 `SESSION_EXPIRED`), after 12 hours, or on sign-out.
+- Passwords are stored only as bcrypt hashes; passwords and tokens are never logged.
+
+The frontend shows a sign-in form, keeps the token in `sessionStorage` (cleared when the tab closes) and has a Sign out button. Protect a new endpoint with `user: User = Depends(get_current_user)` from `app/api/deps.py`.
+
 ## Run the frontend locally
 
 Needs Node.js 20 or newer.
@@ -134,6 +159,9 @@ Backend settings are read from environment variables with the `HH_` prefix, or f
 | `HH_ENVIRONMENT`  | `local`                       | shown by the health endpoint     |
 | `HH_DATABASE_URL` | `sqlite:///./helping_hands.db`| SQLAlchemy URL (see below)       |
 | `HH_CORS_ORIGINS` | `["http://localhost:5173"]`   | JSON list of allowed origins     |
+| `HH_SECRET_KEY`   | a development-only value      | signs session tokens; **set a long random value anywhere shared or deployed** |
+| `HH_SESSION_IDLE_MINUTES` | `30`                  | sign-out after this long idle    |
+| `HH_MAX_FAILED_LOGINS` / `HH_LOCKOUT_MINUTES` | `5` / `15` | account lockout |
 
 Frontend: `VITE_API_BASE_URL` (build time) when the API is on a different host.
 

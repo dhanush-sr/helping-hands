@@ -12,7 +12,9 @@ from sqlalchemy.exc import IntegrityError
 from tests.helpers import database_urls
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
-CORE_TABLES = {"users", "stores", "busy_periods", "shifts", "signups", "settings"}
+CORE_TABLES = {
+    "users", "stores", "busy_periods", "shifts", "signups", "settings", "auth_sessions",
+}
 
 
 def alembic_config(url: str) -> Config:

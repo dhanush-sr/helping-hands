@@ -1,8 +1,17 @@
 import { useEffect, useState } from 'react'
-import { getHealth } from './api.js'
+import { getCurrentUser, getHealth, getToken, signOut } from './api.js'
+import LoginForm from './LoginForm.jsx'
+
+const ROLE_LABELS = {
+  VOLUNTEER: 'Volunteer',
+  STORE_MANAGER: 'Store manager',
+  ADMIN: 'Admin',
+}
 
 function App() {
   const [health, setHealth] = useState({ state: 'loading' })
+  // undefined while checking a saved token, null when signed out
+  const [user, setUser] = useState(getToken() ? undefined : null)
 
   useEffect(() => {
     getHealth()
@@ -10,12 +19,37 @@ function App() {
       .catch((error) => setHealth({ state: 'error', message: error.message }))
   }, [])
 
+  useEffect(() => {
+    if (!getToken()) return
+    getCurrentUser()
+      .then(setUser)
+      .catch(() => setUser(null))
+  }, [])
+
+  async function handleSignOut() {
+    await signOut().catch(() => {})
+    setUser(null)
+  }
+
   return (
     <main className="app">
       <h1>Helping Hands</h1>
       <p>Volunteer shifts for stores during busy periods.</p>
 
-      <section className="status" aria-live="polite">
+      {user === undefined && <p>Checking your session…</p>}
+      {user === null && <LoginForm onSignedIn={setUser} />}
+      {user && (
+        <section className="card" aria-live="polite">
+          <p>
+            Signed in as <strong>{user.full_name}</strong> ({ROLE_LABELS[user.role] ?? user.role})
+          </p>
+          <button type="button" onClick={handleSignOut}>
+            Sign out
+          </button>
+        </section>
+      )}
+
+      <section className="card status" aria-live="polite">
         <h2>Backend status</h2>
         {health.state === 'loading' && <p>Checking…</p>}
         {health.state === 'ok' && (
