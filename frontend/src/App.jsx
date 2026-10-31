@@ -3,6 +3,7 @@ import { getCurrentUser, getHealth, getToken, signOut } from './api.js'
 import AdminPanel from './AdminPanel.jsx'
 import LoginForm from './LoginForm.jsx'
 import ShiftForm from './ShiftForm.jsx'
+import ShiftList from './ShiftList.jsx'
 
 const ROLE_LABELS = {
   VOLUNTEER: 'Volunteer',
@@ -52,6 +53,7 @@ function App() {
       )}
       {user?.role === 'ADMIN' && <AdminPanel />}
       {user?.role === 'STORE_MANAGER' && <ShiftForm />}
+      {user && <ShiftList />}
 
       <section className="card status" aria-live="polite">
         <h2>Backend status</h2>

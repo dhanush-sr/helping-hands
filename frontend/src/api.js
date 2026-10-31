@@ -91,3 +91,11 @@ export function createBusyPeriod(period) {
 export function createShift(shift) {
   return request('/api/v1/shifts', { method: 'POST', body: shift, auth: true })
 }
+
+// Browse shifts (HH-16). Empty filters are left out of the query.
+export function listShifts(filters = {}) {
+  const query = new URLSearchParams(
+    Object.entries(filters).filter(([, value]) => value !== '' && value != null),
+  ).toString()
+  return request(`/api/v1/shifts${query ? `?${query}` : ''}`, { auth: true })
+}
