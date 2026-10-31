@@ -203,6 +203,19 @@ Returns 201 `{"shiftId": 27, "status": "OPEN", "freeSlots": 3}`. `busyPeriodId` 
 
 Another store's id gives 403 `STORE_FORBIDDEN`, an unknown one 404, and any role other than store manager 403 `FORBIDDEN`. Signed in as a store manager, the frontend shows a Post a shift form.
 
+## Browsing shifts
+
+HH-16 (HH-F-010). `GET /api/v1/shifts`, for everyone signed in, with the SAD's filters. All are optional and they combine:
+
+| Filter | Meaning |
+|---|---|
+| `status` | `OPEN` (default), `FILLED`, `CANCELLED` or `COMPLETED` |
+| `storeId`, `busyPeriodId` | ids |
+| `task` | part of the task name, any case (`task=bill` finds "Billing counter") |
+| `date` | store-local date, `YYYY-MM-DD` |
+
+Only shifts that haven't started yet, at active stores, are listed, earliest first. Each one has `shiftId`, `store`, `storeId`, `busyPeriod`, `busyPeriodId`, `date`, `startTime`, `endTime` (store time), `task`, `slotsNeeded`, `freeSlots` (slots minus confirmed sign-ups) and `status`. A filter that can't be read is 400 `INVALID_FILTER`. The frontend shows the list with filters to everyone signed in, as cards that fit a phone screen.
+
 ## Run the frontend locally
 
 Needs Node.js 20 or newer.

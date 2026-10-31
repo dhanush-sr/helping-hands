@@ -107,3 +107,47 @@ button.secondary {
 .inline-form h3 {
   margin: 8px 0 0;
 }
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  align-items: end;
+}
+
+.filters label {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.filters input,
+.filters select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.shift-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.shift {
+  padding: 12px 0;
+  border-bottom: 1px solid #e1e4e8;
+}
+
+.shift-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.slots {
+  color: #1a7f37;
+}
+
+.muted {
+  color: #57606a;
+}
