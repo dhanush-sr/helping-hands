@@ -13,6 +13,9 @@ class Settings(BaseSettings):
 
     app_name: str = "Helping Hands API"
     environment: str = "local"
+    # SQLite file for local work; PostgreSQL elsewhere, e.g.
+    # HH_DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/helping_hands
+    database_url: str = "sqlite:///./helping_hands.db"
     # Origins allowed to call the API from a browser (the Vite dev server by default).
     # Set as JSON in the environment, e.g. HH_CORS_ORIGINS='["https://example.org"]'.
     cors_origins: list[str] = ["http://localhost:5173"]

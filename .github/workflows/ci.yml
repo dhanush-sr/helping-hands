@@ -16,6 +16,23 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # Migrations are also tested against a real PostgreSQL, not only SQLite.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: helping_hands_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      HH_TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/helping_hands_test
     steps:
       - uses: actions/checkout@v4
 
@@ -31,8 +48,15 @@ jobs:
       - name: Lint
         run: ruff check .
 
-      - name: Test
+      - name: Test (SQLite + PostgreSQL)
         run: pytest
+
+      - name: Migrations apply on PostgreSQL from an empty database
+        env:
+          HH_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/helping_hands_test
+        run: |
+          alembic upgrade head
+          alembic downgrade base
 
   frontend:
     name: Frontend (lint + build)
