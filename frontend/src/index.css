@@ -15,12 +15,50 @@ body {
   padding: 24px 16px;
 }
 
-.status {
+.card {
   margin-top: 24px;
   padding: 16px;
   border-radius: 8px;
   background: #ffffff;
   border: 1px solid #e1e4e8;
+}
+
+.login {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 360px;
+}
+
+.login h2 {
+  margin: 0 0 8px;
+}
+
+input {
+  padding: 10px 12px;
+  font: inherit;
+  border: 1px solid #c4c9d0;
+  border-radius: 6px;
+}
+
+button {
+  padding: 10px 16px;
+  font: inherit;
+  color: #ffffff;
+  background: #0b6bcb;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.login .error {
+  min-height: 1.5em;
+  margin: 0;
 }
 
 .ok {

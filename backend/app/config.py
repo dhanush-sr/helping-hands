@@ -20,6 +20,14 @@ class Settings(BaseSettings):
     # Set as JSON in the environment, e.g. HH_CORS_ORIGINS='["https://example.org"]'.
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    # Sign-in (HH-11). The default key is for local development only: set HH_SECRET_KEY
+    # to a long random value in every shared or deployed environment.
+    secret_key: str = "dev-only-secret-key-change-me-before-deploying"
+    session_idle_minutes: int = 30  # signed out after this long without a request
+    session_max_hours: int = 12  # hard limit on one session, even when active
+    max_failed_logins: int = 5  # wrong passwords in a row before the account locks
+    lockout_minutes: int = 15
+
 
 @lru_cache
 def get_settings() -> Settings:
