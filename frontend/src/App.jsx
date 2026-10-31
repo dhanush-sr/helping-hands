@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getCurrentUser, getHealth, getToken, signOut } from './api.js'
+import AdminPanel from './AdminPanel.jsx'
 import LoginForm from './LoginForm.jsx'
 
 const ROLE_LABELS = {
@@ -48,6 +49,7 @@ function App() {
           </button>
         </section>
       )}
+      {user?.role === 'ADMIN' && <AdminPanel />}
 
       <section className="card status" aria-live="polite">
         <h2>Backend status</h2>
