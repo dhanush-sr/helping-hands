@@ -76,6 +76,39 @@ pytest
 ruff check .
 ```
 
+## Demo data
+
+Load the demo data used for testing and the sprint demos (from `backend/`, after
+`alembic upgrade head`):
+
+```bash
+python -m app.seed            # into an empty database
+python -m app.seed --reset    # wipe users, stores, busy periods, shifts and sign-ups, then load again
+```
+
+It loads 5 stores with one manager each, 1 admin, 40 volunteers, two busy periods (Diwali
+weekend 07-08 Nov 2026 and Weekend rush 14-15 Nov 2026), 26 shifts and 24 sign-ups.
+
+| Who | Email | Password |
+|-----|-------|----------|
+| Admin | `admin@helpinghands.example` | `Admin@123` |
+| Store managers | `manager.koramangala@helpinghands.example`, `manager.indiranagar@...`, `manager.jayanagar@...`, `manager.whitefield@...`, `manager.malleshwaram@...` | `Manager@123` |
+| Volunteers | `volunteer01@helpinghands.example` to `volunteer40@helpinghands.example` | `Volunteer@123` |
+
+Demo accounts only: never use these passwords anywhere real.
+
+Shifts for the sign-up edge cases (their description says which test they are for):
+
+| Test | Shift | Set up so that |
+|------|-------|----------------|
+| TC-SIGN-02 full | Koramangala, Queue management, 07 Nov 16:00-19:00 | both slots are confirmed (status `FILLED`) |
+| TC-SIGN-03 clash | Whitefield, Billing counter, 08 Nov 14:00-18:00 | volunteer01 already holds Jayanagar 12:00-16:00 that day |
+| TC-SIGN-04 back-to-back | Malleshwaram, Queue management, 08 Nov 17:00-20:00 | volunteer02 already holds Malleshwaram 14:00-17:00 |
+| TC-SIGN-05 short notice | Indiranagar, Billing counter | starts 6 hours after the seed runs |
+
+Times are store times (IST); the database stores them in UTC. Volunteers 11 to 30 each have
+one pending request on a regular shift, so managers have something to approve.
+
 ## Run the frontend locally
 
 Needs Node.js 20 or newer.
