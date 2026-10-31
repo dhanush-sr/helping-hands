@@ -68,3 +68,41 @@ button:disabled {
 .error {
   color: #cf222e;
 }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+}
+
+th,
+td {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid #e1e4e8;
+}
+
+select {
+  padding: 8px;
+  font: inherit;
+  border: 1px solid #c4c9d0;
+  border-radius: 6px;
+}
+
+button.secondary {
+  padding: 6px 10px;
+  color: #0b6bcb;
+  background: #ffffff;
+  border: 1px solid #0b6bcb;
+}
+
+.inline-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 360px;
+}
+
+.inline-form h3 {
+  margin: 8px 0 0;
+}

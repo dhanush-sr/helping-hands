@@ -61,3 +61,28 @@ export async function signOut() {
     clearToken()
   }
 }
+
+// Stores and busy periods (HH-13)
+export function listStores() {
+  return request('/api/v1/stores', { auth: true })
+}
+
+export function createStore(store) {
+  return request('/api/v1/stores', { method: 'POST', body: store, auth: true })
+}
+
+export function updateStore(storeId, changes) {
+  return request(`/api/v1/stores/${storeId}`, { method: 'PATCH', body: changes, auth: true })
+}
+
+export function listStoreManagers() {
+  return request('/api/v1/store-managers', { auth: true })
+}
+
+export function listBusyPeriods() {
+  return request('/api/v1/busy-periods', { auth: true })
+}
+
+export function createBusyPeriod(period) {
+  return request('/api/v1/busy-periods', { method: 'POST', body: period, auth: true })
+}

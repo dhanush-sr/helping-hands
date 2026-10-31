@@ -163,6 +163,28 @@ def edit_shift(body: ShiftEdit, shift: Shift = Depends(shift_in_scope), db: Sess
 
 All errors, including unknown routes (404), wrong methods (405) and invalid input (422 `VALIDATION_ERROR`), come back as `{"code": "...", "message": "..."}`. Validation messages name the field and the rule but never echo the submitted value.
 
+## Stores and busy periods
+
+HH-13 (HH-F-004, HH-F-005).
+
+| Method and path | Who | Does |
+|---|---|---|
+| `GET /api/v1/stores` | admin, store manager | admins see every store, a manager sees their own active stores |
+| `POST /api/v1/stores` | admin | body `{"name", "location", "manager_id"}` (manager optional); 201 |
+| `PATCH /api/v1/stores/{store_id}` | admin | send only what changes: `name`, `location`, `manager_id` (`null` clears it), `is_active` |
+| `GET /api/v1/store-managers` | admin | active store managers, for the assign choice |
+| `GET /api/v1/busy-periods` | everyone signed in | in date order |
+| `POST /api/v1/busy-periods` | admin | body `{"name", "start_date", "end_date"}`; 201 |
+
+Rules:
+- Store names are unique (409 `STORE_NAME_TAKEN`).
+- A store has at most one manager, who must be an active store manager (400 `INVALID_MANAGER`).
+- Stores are deactivated, never deleted, so past shifts and reports stay intact.
+- A busy period's end date can't be before its start date (400 `INVALID_DATE_RANGE`); a one-day period is fine.
+- Anyone other than an admin gets 403 `FORBIDDEN` for the admin-only calls.
+
+Signed in as the admin, the frontend shows a Stores page (add a store, assign or clear its manager, deactivate) and a Busy periods page (add one, see the list).
+
 ## Run the frontend locally
 
 Needs Node.js 20 or newer.
