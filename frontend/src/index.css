@@ -151,3 +151,17 @@ button.secondary {
 .muted {
   color: #57606a;
 }
+
+/* Sign up on a shift card (HH-17): a full-width button is easy to tap on a phone. */
+.signup {
+  margin-top: 0.5rem;
+}
+
+.signup button {
+  width: 100%;
+  min-height: 44px;
+}
+
+.signup p {
+  margin: 0.35rem 0 0;
+}

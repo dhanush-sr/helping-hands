@@ -216,6 +216,14 @@ HH-16 (HH-F-010). `GET /api/v1/shifts`, for everyone signed in, with the SAD's f
 
 Only shifts that haven't started yet, at active stores, are listed, earliest first. Each one has `shiftId`, `store`, `storeId`, `busyPeriod`, `busyPeriodId`, `date`, `startTime`, `endTime` (store time), `task`, `slotsNeeded`, `freeSlots` (slots minus confirmed sign-ups) and `status`. A filter that can't be read is 400 `INVALID_FILTER`. The frontend shows the list with filters to everyone signed in, as cards that fit a phone screen.
 
+## Signing up for a shift
+
+HH-17 (HH-F-011). `POST /api/v1/shifts/{shiftId}/signups`, volunteers only, no body. Returns 201 `{"signUpId": 12, "shiftId": 845, "status": "REQUESTED"}`. A requested sign-up doesn't take a slot; only the manager's confirmation does (HH-24).
+
+Before saving, the eligibility check (`app/services/eligibility.py`) can refuse with 409 and a code: `SHIFT_CANCELLED`, `SHIFT_STARTED`, `STORE_INACTIVE` or `SHIFT_FULL`. HH-18 adds `NOTICE`, `CLASH` and `WEEKLY_LIMIT` in the same place. Signing up twice for one shift is 409 `ALREADY_SIGNED_UP` (also after a decline); after a withdrawal the volunteer can sign up again. An unknown shift is 404 `SHIFT_NOT_FOUND`, and any other role gets 403 `FORBIDDEN`.
+
+Signed in as a volunteer, each card in the shift list has a Sign up button: browse, tap, done.
+
 ## Run the frontend locally
 
 Needs Node.js 20 or newer.

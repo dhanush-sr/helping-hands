@@ -53,7 +53,7 @@ function App() {
       )}
       {user?.role === 'ADMIN' && <AdminPanel />}
       {user?.role === 'STORE_MANAGER' && <ShiftForm />}
-      {user && <ShiftList />}
+      {user && <ShiftList canSignUp={user.role === 'VOLUNTEER'} />}
 
       <section className="card status" aria-live="polite">
         <h2>Backend status</h2>
