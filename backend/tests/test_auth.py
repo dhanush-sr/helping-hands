@@ -200,3 +200,13 @@ def test_passwords_and_tokens_are_not_logged(client, caplog):
     assert PASSWORD not in caplog.text
     assert "wrong-secret" not in caplog.text
     assert token not in caplog.text
+
+
+def test_token_expiry_follows_the_app_clock(monkeypatch):
+    # Expiry uses security.utcnow(), like the sessions, not the machine's wall clock.
+    issued = datetime(2026, 11, 1, 3, 30, tzinfo=UTC)
+    token = security.create_token("sid", 1, issued + timedelta(minutes=30))
+    monkeypatch.setattr(security, "utcnow", lambda: issued)
+    assert security.decode_token(token)["sid"] == "sid"
+    monkeypatch.setattr(security, "utcnow", lambda: issued + timedelta(minutes=30))
+    assert security.decode_token(token) is None

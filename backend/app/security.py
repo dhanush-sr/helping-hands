@@ -49,13 +49,21 @@ def create_token(session_id: str, user_id: int, expires_at: datetime) -> str:
 
 
 def decode_token(token: str) -> dict | None:
-    """The token's claims, or None when it is malformed, tampered with or expired."""
+    """The token's claims, or None when it is malformed, tampered with or expired.
+
+    Expiry is checked against ``utcnow()``, the same clock the sessions use, rather than
+    PyJWT's wall clock, so tests that set the clock still get working tokens.
+    """
     try:
-        return jwt.decode(
+        claims = jwt.decode(
             token,
             get_settings().secret_key,
             algorithms=[ALGORITHM],
-            options={"require": ["sub", "sid", "exp"]},
+            options={"require": ["sub", "sid", "exp"], "verify_exp": False},
         )
     except jwt.InvalidTokenError:
         return None
+    exp = claims["exp"]
+    if not isinstance(exp, int | float) or exp <= utcnow().timestamp():
+        return None
+    return claims

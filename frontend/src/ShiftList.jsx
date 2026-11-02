@@ -1,16 +1,22 @@
 import { useEffect, useState } from 'react'
-import { listBusyPeriods, listShifts } from './api.js'
+import { listBusyPeriods, listShifts, signUpForShift } from './api.js'
 
 const NO_FILTERS = { date: '', busyPeriodId: '', storeId: '', task: '' }
 
+// Codes where the volunteer has, in effect, already asked; the button stays done.
+const ALREADY_ASKED = new Set(['ALREADY_SIGNED_UP'])
+
 // Browse and filter open shifts (HH-16). Laid out as stacked cards so it works on a phone.
-function ShiftList() {
+// Volunteers get a Sign up button on each card (HH-17): browse, tap, done.
+function ShiftList({ canSignUp = false }) {
   const [filters, setFilters] = useState(NO_FILTERS)
   const [shifts, setShifts] = useState([])
   const [stores, setStores] = useState([])
   const [periods, setPeriods] = useState([])
   const [state, setState] = useState('loading')
   const [error, setError] = useState('')
+  // shiftId -> { state: 'sending' | 'requested' | 'refused', message }
+  const [signUps, setSignUps] = useState({})
 
   // Filter choices: busy periods from the API, stores from the open shifts themselves
   // (volunteers can't list stores).
@@ -48,6 +54,26 @@ function ShiftList() {
       id: `filter-${name}`,
       value: filters[name],
       onChange: (event) => setFilters({ ...filters, [name]: event.target.value }),
+    }
+  }
+
+  function mark(shiftId, value) {
+    setSignUps((current) => ({ ...current, [shiftId]: value }))
+  }
+
+  async function handleSignUp(shift) {
+    mark(shift.shiftId, { state: 'sending' })
+    try {
+      await signUpForShift(shift.shiftId)
+      mark(shift.shiftId, {
+        state: 'requested',
+        message: 'Requested. The store manager will confirm it.',
+      })
+    } catch (err) {
+      mark(shift.shiftId, {
+        state: ALREADY_ASKED.has(err.code) ? 'requested' : 'refused',
+        message: err.message,
+      })
     }
   }
 
@@ -114,10 +140,39 @@ function ShiftList() {
               {shift.date}, {shift.startTime} to {shift.endTime}
               {shift.busyPeriod && <span className="muted"> · {shift.busyPeriod}</span>}
             </div>
+            {canSignUp && (
+              <SignUpAction
+                shift={shift}
+                signUp={signUps[shift.shiftId]}
+                onSignUp={() => handleSignUp(shift)}
+              />
+            )}
           </li>
         ))}
       </ul>
     </section>
+  )
+}
+
+function SignUpAction({ shift, signUp, onSignUp }) {
+  const state = signUp?.state
+  const done = state === 'requested'
+  return (
+    <div className="signup">
+      <button
+        type="button"
+        onClick={onSignUp}
+        disabled={state === 'sending' || done}
+        aria-label={`Sign up for ${shift.task} at ${shift.store}, ${shift.date} ${shift.startTime}`}
+      >
+        {state === 'sending' ? 'Signing up…' : done ? 'Requested' : 'Sign up'}
+      </button>
+      {signUp?.message && (
+        <p className={done ? 'ok' : 'error'} role="status">
+          {signUp.message}
+        </p>
+      )}
+    </div>
   )
 }
 

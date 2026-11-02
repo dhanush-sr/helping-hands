@@ -99,3 +99,8 @@ export function listShifts(filters = {}) {
   ).toString()
   return request(`/api/v1/shifts${query ? `?${query}` : ''}`, { auth: true })
 }
+
+// Sign up for a shift (HH-17). Volunteers only; 201 {signUpId, shiftId, status: "REQUESTED"}.
+export function signUpForShift(shiftId) {
+  return request(`/api/v1/shifts/${shiftId}/signups`, { method: 'POST', auth: true })
+}
