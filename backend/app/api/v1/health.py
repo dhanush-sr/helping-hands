@@ -10,4 +10,9 @@ router = APIRouter(tags=["health"])
 def health() -> dict[str, str]:
     """Liveness check used by CI, the deploy pipeline and the frontend."""
     settings = get_settings()
-    return {"status": "ok", "version": __version__, "environment": settings.environment}
+    return {
+        "status": "ok",
+        "version": __version__,
+        "environment": settings.environment,
+        "commit": settings.commit,
+    }

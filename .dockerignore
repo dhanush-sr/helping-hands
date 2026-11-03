@@ -1,0 +1,14 @@
+.git
+.github
+SRS_SAD_TestPlan
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+**/.venv
+**/venv
+**/*.db
+**/*.sqlite3
+**/.env
+frontend/node_modules
+frontend/dist

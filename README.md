@@ -1,5 +1,7 @@
 # Helping Hands (HH)
 
+**Test environment:** https://helping-hands-test.onrender.com (deployed from `main` after CI passes; see [Deployment](#deployment-test-environment)). Health check: [`/api/v1/health`](https://helping-hands-test.onrender.com/api/v1/health).
+
 A web app for a retail chain. When stores expect heavy footfall on weekends, holidays and sale days, management staff offer to work a shift in a store. Helping Hands lets stores ask for that help, lets managers sign up for it, and records who turned up.
 
 Software Engineering Lab mini project, Section B, Team 14.
@@ -24,6 +26,7 @@ Software Engineering Lab mini project, Section B, Team 14.
 | Database  | PostgreSQL 16 (SQLite for local development) | |
 | Frontend  | React 18, Vite                          | `frontend/`  |
 | CI        | GitHub Actions                          | `.github/workflows/ci.yml` |
+| CD        | Docker, GitHub Container Registry, Render (test environment) | `Dockerfile`, `.github/workflows/deploy.yml` |
 
 Work is planned in Jira (space Helping Hands, key HH): Sprint 1 27-31 Oct 2026, Sprint 2 02-07 Nov 2026.
 
@@ -46,7 +49,10 @@ backend/
 frontend/
   src/                 React app (App.jsx, api.js)
   vite.config.js       dev server, proxies /api to the backend
-.github/workflows/ci.yml
+.github/workflows/ci.yml       lint and tests on every pull request and push to main
+.github/workflows/deploy.yml   deploys main to the test environment after CI passes
+Dockerfile                     one image: backend + built frontend
+deploy/start.sh                container start: migrations, optional demo data, uvicorn
 SRS_SAD_TestPlan/      submitted SRS, SAD and Test Plan (do not edit)
 ```
 
@@ -279,6 +285,12 @@ Backend settings are read from environment variables with the `HH_` prefix, or f
 | `HH_SECRET_KEY`   | a development-only value      | signs session tokens; **set a long random value anywhere shared or deployed** |
 | `HH_SESSION_IDLE_MINUTES` | `30`                  | sign-out after this long idle    |
 | `HH_MAX_FAILED_LOGINS` / `HH_LOCKOUT_MINUTES` | `5` / `15` | account lockout |
+| `HH_FRONTEND_DIST` | unset (`/app/frontend` in the image) | built frontend to serve from the API server |
+| `HH_COMMIT`       | `local` (set by the image build) | commit shown by the health endpoint |
+| `HH_SEED_DEMO`    | `false`                       | `true` loads the demo data at start-up if the database is empty (test environment only) |
+
+`postgres://` and `postgresql://` URLs, as hosts hand them out, are accepted as they are;
+the backend switches them to the psycopg 3 driver itself.
 
 Frontend: `VITE_API_BASE_URL` (build time) when the API is on a different host.
 
@@ -318,9 +330,80 @@ alembic upgrade head
   PostgreSQL 16 service), then `alembic upgrade head` / `downgrade base` on PostgreSQL
 - **Frontend:** install, `npm run lint`, `npm run build`
 
-A failing test or lint error turns the pull request check red. Protect `main` in
+A failing test or lint error turns the pull request check red. When CI passes on `main`,
+the deploy workflow ships that commit to the test environment (see Deployment). Protect `main` in
 GitHub (Settings → Branches) and mark both jobs as required checks so nothing merges
 on red.
+
+## Deployment (test environment)
+
+HH-19 (HH-NF-003, HH-NF-007). `.github/workflows/deploy.yml` runs when the CI workflow
+finishes on `main`:
+
+1. It does nothing unless CI passed for a push to `main`. Pull requests and red builds never deploy.
+2. It builds the `Dockerfile` (React frontend built with Node 20, served by the FastAPI
+   server on Python 3.12) from the exact commit CI tested, and pushes it to GitHub Container
+   Registry as `ghcr.io/dhanush-sr/helping-hands:<commit>` and `:latest`.
+3. It calls the Render deploy hook with that image, so Render pulls and starts it. On start
+   the container runs `alembic upgrade head`, loads the demo data if the database is empty,
+   and starts uvicorn.
+4. It polls `GET /api/v1/health` on the test environment for up to 10 minutes until the
+   response shows the new commit. If it never does, the run fails and shows up red in Actions.
+
+A deploy can also be started by hand: Actions → **CD (test environment)** → Run workflow (on `main`).
+Each run shows the environment link under **Environments → test** on the repository page.
+
+The data lives in a managed PostgreSQL database, not in the container, so restarts and
+redeploys keep it (HH-NF-003). Demo data is only loaded into an empty database.
+
+### Secrets and settings
+
+Nothing secret is in the code. The workflow reads:
+
+| Where (GitHub → Settings → Secrets and variables → Actions) | Name | Value |
+|---|---|---|
+| Repository **secret** | `RENDER_DEPLOY_HOOK_URL` | the Render service's deploy hook (Render → service → Settings → Deploy Hook) |
+| Repository **variable** | `TEST_ENV_URL` | `https://helping-hands-test.onrender.com` |
+
+Pushing to GHCR uses the workflow's own `GITHUB_TOKEN`; no extra secret is needed.
+
+The app's own secrets are set on Render (service → Environment), never in GitHub or the repo:
+
+| Variable | Value |
+|---|---|
+| `HH_DATABASE_URL` | the database's internal connection URL |
+| `HH_SECRET_KEY` | a long random value, e.g. `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
+| `HH_ENVIRONMENT` | `test` |
+| `HH_SEED_DEMO` | `true` |
+| `HH_CORS_ORIGINS` | `["https://helping-hands-test.onrender.com"]` |
+
+### One-time setup
+
+1. Merge this to `main` once, so the workflow builds and pushes the first image (the deploy
+   step fails this first time because the secret isn't there yet; that is expected).
+2. On GitHub, open the `helping-hands` package (repository → Packages) → Package settings →
+   change visibility to **Public**, so Render can pull it without a registry login.
+3. On [Render](https://render.com) (free plan): **New → Postgres** (name `helping-hands-db`), then
+   **New → Web Service → Existing image**, image `ghcr.io/dhanush-sr/helping-hands:latest`,
+   name `helping-hands-test`, health check path `/api/v1/health`, and the environment
+   variables above.
+4. Copy the service's deploy hook into the `RENDER_DEPLOY_HOOK_URL` secret and set the
+   `TEST_ENV_URL` variable, then re-run the workflow from Actions.
+
+Render's free plan sleeps the service after 15 minutes without traffic, so the first request
+after a quiet spell takes up to a minute. Its free PostgreSQL expires after 30 days; recreate
+it (or point `HH_DATABASE_URL` at another free PostgreSQL such as Neon) before then.
+
+### Run the image locally
+
+```bash
+docker build -t helping-hands .
+docker run -p 8000:8000 -e HH_SECRET_KEY=change-me -e HH_SEED_DEMO=true helping-hands
+```
+
+Open http://localhost:8000 (frontend) and http://localhost:8000/api/v1/health. Without
+`HH_DATABASE_URL` it uses SQLite inside the container, which is lost when the container is
+removed; pass a PostgreSQL URL to keep the data.
 
 ## Workflow
 

@@ -1,0 +1,109 @@
+name: CD (test environment)
+
+# HH-19: after CI passes on main, build the Docker image, push it to GitHub Container
+# Registry and deploy it to the test environment on Render, then check it answers
+# GET /api/v1/health. Pull requests never deploy.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  # Redeploy main by hand (Actions -> CD (test environment) -> Run workflow).
+  workflow_dispatch:
+
+# One deploy at a time; a newer push waits rather than cancelling one half done.
+concurrency:
+  group: deploy-test
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  deploy:
+    name: Build and deploy
+    # Only when CI went green for a push to main (or a manual run on main).
+    if: >-
+      (github.event_name == 'workflow_run'
+        && github.event.workflow_run.conclusion == 'success'
+        && github.event.workflow_run.event == 'push')
+      || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    environment:
+      name: test
+      url: ${{ vars.TEST_ENV_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The exact commit CI tested, not whatever main is now.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Image name and tag
+        id: meta
+        run: |
+          image=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "tag=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: HH_COMMIT=${{ steps.meta.outputs.tag }}
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.image }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to Render
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          IMAGE_REF: ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+        run: |
+          if [ -z "$DEPLOY_HOOK" ]; then
+            echo "::error::Repository secret RENDER_DEPLOY_HOOK_URL is not set (see README, Deployment)."
+            exit 1
+          fi
+          # Tell Render to pull exactly this image. The hook URL is a secret, so it is
+          # never echoed; GitHub also masks it in the log.
+          encoded=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$IMAGE_REF")
+          curl --fail --silent --show-error --output /dev/null -X POST "${DEPLOY_HOOK}&imgURL=${encoded}"
+          echo "Deploy of $IMAGE_REF requested."
+
+      - name: Check the deployed app answers /api/v1/health
+        env:
+          TEST_ENV_URL: ${{ vars.TEST_ENV_URL }}
+          EXPECTED_SHA: ${{ steps.meta.outputs.tag }}
+        run: |
+          if [ -z "$TEST_ENV_URL" ]; then
+            echo "::error::Repository variable TEST_ENV_URL is not set (see README, Deployment)."
+            exit 1
+          fi
+          url="${TEST_ENV_URL%/}/api/v1/health"
+          # Render takes a few minutes to pull and start the image (longer from a cold start
+          # on the free plan), so wait for the new version for up to 10 minutes.
+          for attempt in $(seq 1 40); do
+            body=$(curl --silent --max-time 20 "$url" || true)
+            if echo "$body" | grep -q "\"commit\":\"$EXPECTED_SHA\""; then
+              echo "Attempt $attempt: $body"
+              echo "The test environment is running $EXPECTED_SHA and is healthy."
+              exit 0
+            fi
+            echo "Attempt $attempt: not on $EXPECTED_SHA yet (${body:-no answer}); waiting 15 s"
+            sleep 15
+          done
+          echo "::error::$url did not report commit $EXPECTED_SHA within 10 minutes."
+          exit 1
