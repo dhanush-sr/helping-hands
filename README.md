@@ -224,6 +224,33 @@ Before saving, the eligibility check (`app/services/eligibility.py`) can refuse 
 
 Signed in as a volunteer, each card in the shift list has a Sign up button: browse, tap, done.
 
+## Sign-up rules
+
+HH-18 (HH-F-012, HH-F-013). One service function, `eligibility.check` in
+`backend/app/services/eligibility.py`, decides whether a volunteer may sign up. Sign-up
+(HH-17) calls it before saving anything, so a refusal never leaves a half-made row. Each
+refusal is 409 with the code that says why:
+
+| Code | When |
+|---|---|
+| `SHIFT_CANCELLED`, `SHIFT_STARTED`, `STORE_INACTIVE` | the shift can't take anyone |
+| `SHIFT_FULL` | every slot is confirmed |
+| `NOTICE` | it starts inside the minimum notice (default 12 hours) |
+| `CLASH` | it overlaps a shift the volunteer already holds |
+| `WEEKLY_LIMIT` | it would take them over the weekly hour limit (default 8) |
+
+The rules about the shift are checked first, so a volunteer hears "this shift is full"
+before anything about their own schedule.
+
+- **Held shifts** are those with a `REQUESTED` or `CONFIRMED` sign-up. Declined and
+  withdrawn sign-ups, and cancelled shifts, don't count towards a clash or the hours.
+- **Back-to-back shifts are allowed:** one ending exactly when the next starts is not an
+  overlap.
+- **The week runs Monday to Sunday** in store time, and reaching the limit exactly is
+  allowed; only going over it is refused.
+- **The notice and limit are settings**, read through `app/services/rules.py`, so when an
+  admin changes them (HH-20) the checks follow straight away.
+
 ## Run the frontend locally
 
 Needs Node.js 20 or newer.
