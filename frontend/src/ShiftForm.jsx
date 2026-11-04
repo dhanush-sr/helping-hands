@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { createShift, listBusyPeriods, listStores } from './api.js'
+import { createShift, editShift, listBusyPeriods, listStores } from './api.js'
 
 const EMPTY = {
   busyPeriodId: '',
@@ -19,18 +19,21 @@ function today() {
 }
 
 // Store managers post a help request (HH-15). Times are store time (IST).
-function ShiftForm() {
+function ShiftForm({ shift, onSaved, onDismiss }) {
+  const editing = Boolean(shift)
   const [stores, setStores] = useState([])
   const [periods, setPeriods] = useState([])
-  const [storeId, setStoreId] = useState('')
-  const [form, setForm] = useState(EMPTY)
+  const [storeId, setStoreId] = useState(shift?.storeId ?? '')
+  const [form, setForm] = useState(shift ? {
+    ...shift, busyPeriodId: shift.busyPeriodId ?? '', notes: shift.notes ?? '',
+  } : EMPTY)
   const [error, setError] = useState('')
   const [posted, setPosted] = useState('')
   const [busy, setBusy] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    Promise.all([listStores(), listBusyPeriods()])
+    Promise.all([editing ? Promise.resolve([]) : listStores(), listBusyPeriods()])
       .then(([storeList, periodList]) => {
         setStores(storeList)
         setPeriods(periodList)
@@ -38,11 +41,11 @@ function ShiftForm() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoaded(true))
-  }, [])
+  }, [editing])
 
   function field(name) {
     return {
-      id: `shift-${name}`,
+      id: editing ? `shift-${shift.shiftId}-${name}` : `shift-${name}`,
       value: form[name],
       onChange: (event) => setForm({ ...form, [name]: event.target.value }),
     }
@@ -54,8 +57,7 @@ function ShiftForm() {
     setPosted('')
     setBusy(true)
     try {
-      const created = await createShift({
-        storeId: Number(storeId),
+      const payload = {
         busyPeriodId: form.busyPeriodId ? Number(form.busyPeriodId) : null,
         date: form.date,
         startTime: form.startTime,
@@ -63,7 +65,13 @@ function ShiftForm() {
         task: form.task,
         slotsNeeded: Number(form.slotsNeeded),
         notes: form.notes || null,
-      })
+      }
+      if (editing) {
+        onSaved(await editShift(shift.shiftId, payload))
+        return
+      }
+      const created = await createShift({ ...payload, storeId: Number(storeId) })
+      onSaved?.()
       setPosted(
         `Posted: ${form.task} on ${form.date}, ${form.startTime} to ${form.endTime} ` +
           `(${created.freeSlots} volunteers needed).`,
@@ -78,7 +86,7 @@ function ShiftForm() {
 
   if (!loaded) return <p>Loading your stores…</p>
 
-  if (stores.length === 0 && !error) {
+  if (!editing && stores.length === 0 && !error) {
     return (
       <section className="card">
         <h2>Post a shift</h2>
@@ -89,24 +97,28 @@ function ShiftForm() {
 
   return (
     <form className="card inline-form" onSubmit={handleSubmit}>
-      <h2>Post a shift</h2>
+      <h2>{editing ? 'Edit shift' : 'Post a shift'}</h2>
 
-      <label htmlFor="shift-store">Store</label>
-      <select
-        id="shift-store"
-        value={storeId}
-        onChange={(event) => setStoreId(event.target.value)}
-        required
-      >
-        <option value="">Choose a store</option>
-        {stores.map((store) => (
-          <option key={store.id} value={store.id}>
-            {store.name}
-          </option>
-        ))}
-      </select>
+      {!editing && (
+        <>
+          <label htmlFor="shift-store">Store</label>
+          <select
+            id="shift-store"
+            value={storeId}
+            onChange={(event) => setStoreId(event.target.value)}
+            required
+          >
+            <option value="">Choose a store</option>
+            {stores.map((store) => (
+              <option key={store.id} value={store.id}>
+                {store.name}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
 
-      <label htmlFor="shift-busyPeriodId">Busy period (optional)</label>
+      <label htmlFor={field('busyPeriodId').id}>Busy period (optional)</label>
       <select {...field('busyPeriodId')}>
         <option value="">None</option>
         {periods.map((period) => (
@@ -116,22 +128,22 @@ function ShiftForm() {
         ))}
       </select>
 
-      <label htmlFor="shift-date">Date</label>
+      <label htmlFor={field('date').id}>Date</label>
       <input type="date" min={today()} required {...field('date')} />
 
-      <label htmlFor="shift-startTime">Start time</label>
+      <label htmlFor={field('startTime').id}>Start time</label>
       <input type="time" required {...field('startTime')} />
 
-      <label htmlFor="shift-endTime">End time</label>
+      <label htmlFor={field('endTime').id}>End time</label>
       <input type="time" required {...field('endTime')} />
 
-      <label htmlFor="shift-task">Task</label>
+      <label htmlFor={field('task').id}>Task</label>
       <input placeholder="e.g. Billing counter" maxLength={120} required {...field('task')} />
 
-      <label htmlFor="shift-slotsNeeded">Volunteers needed</label>
+      <label htmlFor={field('slotsNeeded').id}>Volunteers needed</label>
       <input type="number" min={1} max={100} required {...field('slotsNeeded')} />
 
-      <label htmlFor="shift-notes">Notes (optional)</label>
+      <label htmlFor={field('notes').id}>Notes (optional)</label>
       <textarea rows={2} maxLength={1000} {...field('notes')} />
 
       <p className="error" role="alert">
@@ -142,8 +154,9 @@ function ShiftForm() {
       </p>
 
       <button type="submit" disabled={busy}>
-        {busy ? 'Posting…' : 'Post shift'}
+        {busy ? 'Saving…' : editing ? 'Save shift' : 'Post shift'}
       </button>
+      {editing && <button type="button" className="secondary" onClick={onDismiss}>Close editor</button>}
     </form>
   )
 }

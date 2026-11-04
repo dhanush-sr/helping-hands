@@ -113,3 +113,10 @@ export const updateUser = (id, body) =>
 export const getRules = () => request('/api/v1/admin/rules', { auth: true })
 export const saveRules = (body) =>
   request('/api/v1/admin/rules', { method: 'PUT', body, auth: true })
+
+export const listManagedShifts = () => request('/api/v1/shifts/managed', { auth: true })
+export const editShift = (id, body) =>
+  request(`/api/v1/shifts/${id}`, { method: 'PATCH', body, auth: true })
+export const cancelShift = (id) =>
+  request(`/api/v1/shifts/${id}/cancel`, { method: 'POST', auth: true })
+export const listNotifications = () => request('/api/v1/notifications', { auth: true })
