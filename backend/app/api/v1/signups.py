@@ -40,3 +40,11 @@ def sign_up(
 ) -> SignUpCreated:
     signup = signups.sign_up(db, user, shift_id)
     return SignUpCreated(sign_up_id=signup.id, shift_id=signup.shift_id, status=signup.status)
+
+
+@router.post("/signups/{signup_id}/withdraw", response_model=SignUpCreated)
+def withdraw(
+    signup_id: int, user: User = Depends(require_volunteer), db: Session = Depends(get_db)
+) -> SignUpCreated:
+    signup = signups.withdraw(db, user, signup_id)
+    return SignUpCreated(sign_up_id=signup.id, shift_id=signup.shift_id, status=signup.status)
