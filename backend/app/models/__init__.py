@@ -1,10 +1,10 @@
 """All ORM models. Importing this package registers every table on ``Base.metadata``
 (Alembic's env.py relies on that).
 
-Attendance, Notification and AuditEvent are added in Sprint 2.
 """
 
 from app.db.base import Base
+from app.models.activity import Attendance, AuditEvent, Notification
 from app.models.auth_session import AuthSession
 from app.models.busy_period import BusyPeriod
 from app.models.enums import ShiftStatus, SignUpStatus, UserRole
@@ -25,6 +25,9 @@ __all__ = [
     "MIN_NOTICE_HOURS",
     "WEEKLY_HOUR_LIMIT",
     "WITHDRAWAL_CUTOFF_HOURS",
+    "Attendance",
+    "AuditEvent",
+    "Notification",
     "AuthSession",
     "Base",
     "BusyPeriod",
