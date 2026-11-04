@@ -17,7 +17,8 @@ HH-16 adds ``GET /api/v1/shifts`` for everyone signed in, with the SAD's filters
           "slotsNeeded": 3, "freeSlots": 2, "status": "OPEN"}]
 """
 
-from datetime import date, time
+from datetime import date as calendar_date
+from datetime import time
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -27,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_any_role, require_manager
 from app.db.session import get_db
+from app.errors import ApiError
 from app.models import Shift, ShiftStatus, User
 from app.services import shifts
 
@@ -40,14 +42,14 @@ class CamelModel(BaseModel):
 class ShiftIn(CamelModel):
     store_id: int
     busy_period_id: int | None = None
-    date: date
+    date: calendar_date
     start_time: time
     end_time: time
     task: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
     # Range checked by the service so a bad number gets 400 INVALID_SLOTS, as HH-15 asks.
     slots_needed: int
-    notes: Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)] | None = (
-        Field(default=None)
+    notes: Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)] | None = Field(
+        default=None
     )
 
 
@@ -82,7 +84,7 @@ class ShiftListItem(CamelModel):
     store_id: int
     busy_period: str | None
     busy_period_id: int | None
-    date: date
+    date: calendar_date
     start_time: str
     end_time: str
     task: str
@@ -128,3 +130,51 @@ def browse_shifts(
         db, status=status, store_id=store_id, busy_period_id=busy_period_id, task=task, day=day
     )
     return [list_item(shift) for shift in found]
+
+
+class ShiftEdit(CamelModel):
+    model_config = ConfigDict(extra="forbid")
+    busy_period_id: int | None = None
+    date: calendar_date | None = None
+    start_time: time | None = None
+    end_time: time | None = None
+    task: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+        | None
+    ) = None
+    slots_needed: int | None = None
+    notes: Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)] | None = None
+
+
+class ManagedShift(ShiftListItem):
+    notes: str | None
+
+
+def managed_item(shift: Shift) -> ManagedShift:
+    return ManagedShift(**list_item(shift).model_dump(), notes=shift.description)
+
+
+@router.get("/managed", response_model=list[ManagedShift])
+def managed_shifts(user: User = Depends(require_manager), db: Session = Depends(get_db)):
+    return [managed_item(shift) for shift in shifts.managed_shifts(db, user)]
+
+
+@router.patch("/{shift_id}", response_model=ManagedShift)
+def edit_shift(
+    shift_id: int,
+    body: ShiftEdit,
+    user: User = Depends(require_manager),
+    db: Session = Depends(get_db),
+):
+    changes = body.model_dump(exclude_unset=True)
+    for key in changes.keys() - {"notes", "busy_period_id"}:
+        if changes[key] is None:
+            raise ApiError(400, "INVALID_SHIFT", f"{key} cannot be null.")
+    return managed_item(shifts.change_shift(db, user, shift_id, changes))
+
+
+@router.post("/{shift_id}/cancel", response_model=ManagedShift)
+def cancel_shift(
+    shift_id: int, user: User = Depends(require_manager), db: Session = Depends(get_db)
+):
+    return managed_item(shifts.change_shift(db, user, shift_id, None))

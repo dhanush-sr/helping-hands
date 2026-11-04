@@ -104,3 +104,23 @@ export function listShifts(filters = {}) {
 export function signUpForShift(shiftId) {
   return request(`/api/v1/shifts/${shiftId}/signups`, { method: 'POST', auth: true })
 }
+
+export const listUsers = () => request('/api/v1/admin/users', { auth: true })
+export const createUser = (body) =>
+  request('/api/v1/admin/users', { method: 'POST', body, auth: true })
+export const updateUser = (id, body) =>
+  request(`/api/v1/admin/users/${id}`, { method: 'PATCH', body, auth: true })
+export const getRules = () => request('/api/v1/admin/rules', { auth: true })
+export const saveRules = (body) =>
+  request('/api/v1/admin/rules', { method: 'PUT', body, auth: true })
+
+export const listManagedShifts = () => request('/api/v1/shifts/managed', { auth: true })
+export const editShift = (id, body) =>
+  request(`/api/v1/shifts/${id}`, { method: 'PATCH', body, auth: true })
+export const cancelShift = (id) =>
+  request(`/api/v1/shifts/${id}/cancel`, { method: 'POST', auth: true })
+export const getAttendance = (id) => request(`/api/v1/shifts/${id}/attendance`, { auth: true })
+export const saveAttendance = (shiftId, signupId, body) =>
+  request(`/api/v1/shifts/${shiftId}/attendance/${signupId}`, { method: 'PUT', body, auth: true })
+export const listNotifications = () => request('/api/v1/notifications', { auth: true })
+export const listMyAttendance = () => request('/api/v1/attendance/me', { auth: true })

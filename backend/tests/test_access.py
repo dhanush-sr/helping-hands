@@ -1,7 +1,7 @@
 """HH-12 role and store checks: TC-AUTH-03, TC-AUTH-04, sign-up scope and deny by default.
 
-Posting a shift uses the real endpoint (HH-15). Editing shifts and deciding or withdrawing
-sign-ups arrive with HH-22, HH-24 and HH-26; until then these tests add small stand-in
+Posting, editing and withdrawal use the real endpoints. Sign-up decisions and coverage
+use small stand-in
 endpoints to a copy of the app, wired the way the real ones must be (a ``require_*`` role
 check plus the store-scope helpers). When a real endpoint lands, point its test here at it
 and delete the stand-in.
@@ -19,13 +19,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from app import security
 from app.api.deps import (
     get_current_session,
     require_manager,
     require_manager_or_admin,
     require_role,
-    require_volunteer,
-    shift_in_scope,
     signup_in_scope,
 )
 from app.api.v1 import auth as auth_api
@@ -33,11 +32,20 @@ from app.api.v1 import health as health_api
 from app.db.session import get_db, make_engine
 from app.main import app as real_app
 from app.main import create_app
-from app.models import Base, Shift, SignUp, SignUpStatus, Store, User, UserRole
+from app.models import (
+    AuditEvent,
+    Base,
+    Shift,
+    ShiftStatus,
+    SignUp,
+    SignUpStatus,
+    Store,
+    User,
+    UserRole,
+)
 from app.services import access
 
 PASSWORD = "Test@1234"
-STARTS_AT = datetime(2026, 11, 8, 4, 30, tzinfo=UTC)  # 10:00 IST
 
 # Endpoints anyone may call without signing in (GET /api/v1/health, POST /api/v1/auth/login).
 # Everything else must check the role. Matched by function, so router prefixes don't matter.
@@ -55,24 +63,12 @@ USERS = {
 # --- stand-in endpoints, shaped like SAD 4.3 -----------------------------------------------
 
 
-class ShiftEdit(BaseModel):
-    slots: int = Field(ge=1)
-
-
 class Decision(BaseModel):
     decision: str = Field(pattern="^(APPROVE|DECLINE)$")
 
 
 def stand_in_router() -> APIRouter:
     router = APIRouter(prefix="/api/v1")
-
-    @router.patch("/shifts/{shift_id}", dependencies=[Depends(require_manager)])
-    def edit_shift(
-        body: ShiftEdit, shift: Shift = Depends(shift_in_scope), db: Session = Depends(get_db)
-    ) -> dict:
-        shift.slots = body.slots
-        db.commit()
-        return {"shiftId": shift.id, "slots": shift.slots}
 
     @router.patch("/signups/{signup_id}")
     def decide_signup(
@@ -84,14 +80,6 @@ def stand_in_router() -> APIRouter:
         approved = body.decision == "APPROVE"
         signup.status = SignUpStatus.CONFIRMED if approved else SignUpStatus.DECLINED
         signup.decided_by_id = user.id
-        db.commit()
-        return {"signUpId": signup.id, "status": signup.status.value}
-
-    @router.post("/signups/{signup_id}/withdraw", dependencies=[Depends(require_volunteer)])
-    def withdraw_signup(
-        signup: SignUp = Depends(signup_in_scope), db: Session = Depends(get_db)
-    ) -> dict:
-        signup.status = SignUpStatus.WITHDRAWN
         db.commit()
         return {"signUpId": signup.id, "status": signup.status.value}
 
@@ -138,11 +126,12 @@ def world(tmp_path):
         }
         store_a = Store(name="Store A", location="A Road", manager=users["manager_a"])
         store_b = Store(name="Store B", location="B Road", manager=users["manager_b"])
+        starts_at = datetime.now(UTC).replace(second=0, microsecond=0) + timedelta(days=7)
         shift_b = Shift(
             store=store_b,
             task="Billing counter",
-            starts_at=STARTS_AT,
-            ends_at=STARTS_AT + timedelta(hours=4),
+            starts_at=starts_at,
+            ends_at=starts_at + timedelta(hours=4),
             slots=2,
         )
         signup_b = SignUp(shift=shift_b, volunteer=users["volunteer"])
@@ -273,7 +262,7 @@ def test_require_role_needs_at_least_one_role():
 
 def test_manager_cannot_edit_another_stores_shift(client, world, as_user):  # TC-AUTH-04
     response = client.patch(
-        f"/api/v1/shifts/{world.ids.shift_b}", json={"slots": 9}, headers=as_user("manager_a")
+        f"/api/v1/shifts/{world.ids.shift_b}", json={"slotsNeeded": 9}, headers=as_user("manager_a")
     )
 
     assert response.status_code == 403
@@ -283,7 +272,7 @@ def test_manager_cannot_edit_another_stores_shift(client, world, as_user):  # TC
 
 def test_manager_edits_their_own_stores_shift(client, world, as_user):
     response = client.patch(
-        f"/api/v1/shifts/{world.ids.shift_b}", json={"slots": 3}, headers=as_user("manager_b")
+        f"/api/v1/shifts/{world.ids.shift_b}", json={"slotsNeeded": 3}, headers=as_user("manager_b")
     )
     assert response.status_code == 200
     assert stored(world, Shift, world.ids.shift_b).slots == 3
@@ -351,7 +340,7 @@ def test_scope_follows_the_current_store_manager(client, world, as_user):
         db.get(Store, world.ids.store_b).manager_id = None
         db.commit()
     response = client.patch(
-        f"/api/v1/shifts/{world.ids.shift_b}", json={"slots": 3}, headers=as_user("manager_b")
+        f"/api/v1/shifts/{world.ids.shift_b}", json={"slotsNeeded": 3}, headers=as_user("manager_b")
     )
     assert response.status_code == 403
 
@@ -359,7 +348,7 @@ def test_scope_follows_the_current_store_manager(client, world, as_user):
 @pytest.mark.parametrize(
     ("method", "path", "body", "code"),
     [
-        ("PATCH", "/api/v1/shifts/999", {"slots": 1}, "SHIFT_NOT_FOUND"),
+        ("PATCH", "/api/v1/shifts/999", {"slotsNeeded": 1}, "SHIFT_NOT_FOUND"),
         ("PATCH", "/api/v1/signups/999", {"decision": "APPROVE"}, "SIGNUP_NOT_FOUND"),
         ("POST", "/api/v1/shifts", new_shift_body(999), "STORE_NOT_FOUND"),
     ],
@@ -371,7 +360,9 @@ def test_unknown_ids_give_404(client, as_user, method, path, body, code):
 
 
 def test_unknown_id_is_still_403_for_the_wrong_role(client, as_user):
-    response = client.patch("/api/v1/shifts/999", json={"slots": 1}, headers=as_user("volunteer"))
+    response = client.patch(
+        "/api/v1/shifts/999", json={"slotsNeeded": 1}, headers=as_user("volunteer")
+    )
     assert response.status_code == 403
 
 
@@ -462,7 +453,9 @@ def test_framework_errors_use_the_same_shape(client, world, as_user):
     assert wrong_method.json()["code"] == "METHOD_NOT_ALLOWED"
 
     bad_input = client.patch(
-        f"/api/v1/shifts/{world.ids.shift_b}", json={"slots": 0}, headers=as_user("manager_b")
+        f"/api/v1/shifts/{world.ids.shift_b}",
+        json={"slotsNeeded": "many"},
+        headers=as_user("manager_b"),
     )
     assert bad_input.status_code == 422
     assert bad_input.json()["code"] == "VALIDATION_ERROR"
@@ -475,3 +468,115 @@ def test_invalid_input_is_not_echoed_back(client):
     assert response.status_code == 422
     assert set(response.json()) == {"code", "message"}
     assert "hunter2-secret" not in response.text
+
+
+def test_admin_manages_accounts_and_rules(client, world, as_user):
+    admin = as_user("admin")
+    volunteer = as_user("volunteer")
+    users_path = "/api/v1/admin/users"
+    rules_path = "/api/v1/admin/rules"
+    assert client.get(users_path, headers=volunteer).status_code == 403
+    assert client.get(rules_path, headers=volunteer).status_code == 403
+
+    account = {"email": "new@example.org", "password": PASSWORD, "full_name": "New Manager"}
+    response = client.post(users_path, json={**account, "role": "STORE_MANAGER"}, headers=admin)
+    assert response.status_code == 201, response.text
+    assert response.json()["is_active"]
+    assert "password_hash" not in response.json()
+    user_id = response.json()["id"]
+    credentials = {key: account[key] for key in ("email", "password")}
+    login = client.post("/api/v1/auth/login", json=credentials)
+    assert login.json()["user"]["role"] == "STORE_MANAGER"
+
+    response = client.patch(
+        f"{users_path}/{user_id}", json={"role": "VOLUNTEER", "is_active": False}, headers=admin
+    )
+    assert response.status_code == 200
+    assert client.post("/api/v1/auth/login", json=credentials).status_code == 403
+    session = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    assert client.get("/api/v1/auth/me", headers=session).status_code == 401
+    with world.sessions() as db:
+        audit = db.scalar(select(AuditEvent).where(AuditEvent.target_id == user_id))
+        assert audit.action == "USER_ROLE_CHANGED"
+
+    rules = client.get(rules_path, headers=admin).json()
+    assert rules == {"weekly_hour_limit": 8, "min_notice_hours": 12, "withdrawal_cutoff_hours": 24}
+    changed = {**rules, "withdrawal_cutoff_hours": 200}
+    assert client.put(rules_path, json=changed, headers=admin).status_code == 200
+    assert (
+        client.put(rules_path, json={**changed, "min_notice_hours": 0}, headers=admin).status_code
+        == 422
+    )
+    path = f"/api/v1/signups/{world.ids.signup_b}/withdraw"
+    assert client.post(path, headers=volunteer).json()["code"] == "WITHDRAWAL_CUTOFF"
+    assert client.put(rules_path, json=rules, headers=admin).status_code == 200
+    assert client.post(path, headers=volunteer).status_code == 200
+
+
+def test_shift_edit_capacity_and_cancel_notifications(client, world, as_user):
+    path = f"/api/v1/shifts/{world.ids.shift_b}"
+    manager = as_user("manager_b")
+    with world.sessions() as db:
+        signup = db.get(SignUp, world.ids.signup_b)
+        signup.status = SignUpStatus.CONFIRMED
+        other = db.scalar(select(User).where(User.email == "other_volunteer@example.org"))
+        db.add(
+            SignUp(shift_id=signup.shift_id, volunteer_id=other.id, status=SignUpStatus.CONFIRMED)
+        )
+        db.commit()
+
+    assert (
+        client.patch(path, json={"slotsNeeded": 1}, headers=manager).json()["code"]
+        == "SLOTS_BELOW_CONFIRMED"
+    )
+    assert client.patch(path, json={"task": "Inventory"}, headers=manager).status_code == 200
+    assert client.post(f"{path}/cancel", headers=as_user("manager_a")).status_code == 403
+    for _ in range(2):
+        response = client.post(f"{path}/cancel", headers=manager)
+        assert response.json()["status"] == "CANCELLED"
+    for volunteer in ("volunteer", "other_volunteer"):
+        response = client.get("/api/v1/notifications", headers=as_user(volunteer))
+        assert len(response.json()) == 2
+        assert "cancelled" in response.json()[0]["message"]
+
+
+def test_attendance_is_scoped_audited_and_completes_shift(client, world, as_user, monkeypatch):
+    shift_id = world.ids.shift_b
+    signup_id = world.ids.signup_b
+    roster_path = f"/api/v1/shifts/{shift_id}/attendance"
+    path = f"{roster_path}/{signup_id}"
+    with world.sessions() as db:
+        signup = db.get(SignUp, signup_id)
+        signup.status = SignUpStatus.CONFIRMED
+        other = db.scalar(select(User).where(User.email == "other_volunteer@example.org"))
+        other_signup = SignUp(
+            shift_id=shift_id, volunteer_id=other.id, status=SignUpStatus.CONFIRMED
+        )
+        db.add(other_signup)
+        db.commit()
+        other_id = other_signup.id
+        started = security.as_utc(signup.shift.starts_at)
+
+    manager = as_user("manager_b")
+    body = {"status": "ATTENDED", "hours_worked": 2.5}
+    assert client.put(path, json=body, headers=manager).status_code == 409
+    monkeypatch.setattr(security, "utcnow", lambda: started)
+    manager = as_user("manager_b")
+    assert client.put(path, json=body, headers=as_user("manager_a")).status_code == 403
+    assert client.put(path, json={**body, "hours_worked": 4.01}, headers=manager).status_code == 400
+    assert client.put(path, json=body, headers=manager).status_code == 200
+    assert stored(world, Shift, shift_id).status == ShiftStatus.OPEN
+    assert client.put(path, json=body, headers=manager).status_code == 200
+    assert (
+        client.put(
+            f"{roster_path}/{other_id}",
+            json={"status": "NO_SHOW", "hours_worked": 0},
+            headers=manager,
+        ).status_code
+        == 200
+    )
+    assert stored(world, Shift, shift_id).status == ShiftStatus.COMPLETED
+    with world.sessions() as db:
+        assert db.scalar(select(func.count()).select_from(AuditEvent)) == 2
+    response = client.get("/api/v1/attendance/me", headers=as_user("volunteer"))
+    assert [row["hoursWorked"] for row in response.json()] == [2.5]

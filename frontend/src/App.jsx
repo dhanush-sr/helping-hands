@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { getCurrentUser, getHealth, getToken, signOut } from './api.js'
 import AdminPanel from './AdminPanel.jsx'
 import LoginForm from './LoginForm.jsx'
-import ShiftForm from './ShiftForm.jsx'
+import AccountsAdmin from './AccountsAdmin.jsx'
+import ManagerShifts from './ManagerShifts.jsx'
+import VolunteerActivity from './VolunteerActivity.jsx'
 import ShiftList from './ShiftList.jsx'
 
 const ROLE_LABELS = {
@@ -12,6 +14,7 @@ const ROLE_LABELS = {
 }
 
 function App() {
+  const [shiftVersion, setShiftVersion] = useState(0)
   const [health, setHealth] = useState({ state: 'loading' })
   // undefined while checking a saved token, null when signed out
   const [user, setUser] = useState(getToken() ? undefined : null)
@@ -51,9 +54,13 @@ function App() {
           </button>
         </section>
       )}
-      {user?.role === 'ADMIN' && <AdminPanel />}
-      {user?.role === 'STORE_MANAGER' && <ShiftForm />}
-      {user && <ShiftList canSignUp={user.role === 'VOLUNTEER'} />}
+      {user?.role === 'ADMIN' && <>
+        <AccountsAdmin currentUserId={user.id} />
+        <AdminPanel />
+      </>}
+      {user?.role === 'STORE_MANAGER' && <ManagerShifts onChanged={() => setShiftVersion((n) => n + 1)} />}
+      {user?.role === 'VOLUNTEER' && <VolunteerActivity />}
+      {user && <ShiftList key={shiftVersion} canSignUp={user.role === 'VOLUNTEER'} />}
 
       <section className="card status" aria-live="polite">
         <h2>Backend status</h2>

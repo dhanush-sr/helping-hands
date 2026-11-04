@@ -14,6 +14,7 @@ from tests.helpers import database_urls
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 CORE_TABLES = {
     "users", "stores", "busy_periods", "shifts", "signups", "settings", "auth_sessions",
+    "attendance", "notifications", "audit_events",
 }
 
 
