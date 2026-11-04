@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from app import security
 from app.api.deps import (
     get_current_session,
     require_manager,
@@ -35,6 +36,7 @@ from app.models import (
     AuditEvent,
     Base,
     Shift,
+    ShiftStatus,
     SignUp,
     SignUpStatus,
     Store,
@@ -536,3 +538,45 @@ def test_shift_edit_capacity_and_cancel_notifications(client, world, as_user):
         response = client.get("/api/v1/notifications", headers=as_user(volunteer))
         assert len(response.json()) == 2
         assert "cancelled" in response.json()[0]["message"]
+
+
+def test_attendance_is_scoped_audited_and_completes_shift(client, world, as_user, monkeypatch):
+    shift_id = world.ids.shift_b
+    signup_id = world.ids.signup_b
+    roster_path = f"/api/v1/shifts/{shift_id}/attendance"
+    path = f"{roster_path}/{signup_id}"
+    with world.sessions() as db:
+        signup = db.get(SignUp, signup_id)
+        signup.status = SignUpStatus.CONFIRMED
+        other = db.scalar(select(User).where(User.email == "other_volunteer@example.org"))
+        other_signup = SignUp(
+            shift_id=shift_id, volunteer_id=other.id, status=SignUpStatus.CONFIRMED
+        )
+        db.add(other_signup)
+        db.commit()
+        other_id = other_signup.id
+        started = security.as_utc(signup.shift.starts_at)
+
+    manager = as_user("manager_b")
+    body = {"status": "ATTENDED", "hours_worked": 2.5}
+    assert client.put(path, json=body, headers=manager).status_code == 409
+    monkeypatch.setattr(security, "utcnow", lambda: started)
+    manager = as_user("manager_b")
+    assert client.put(path, json=body, headers=as_user("manager_a")).status_code == 403
+    assert client.put(path, json={**body, "hours_worked": 4.01}, headers=manager).status_code == 400
+    assert client.put(path, json=body, headers=manager).status_code == 200
+    assert stored(world, Shift, shift_id).status == ShiftStatus.OPEN
+    assert client.put(path, json=body, headers=manager).status_code == 200
+    assert (
+        client.put(
+            f"{roster_path}/{other_id}",
+            json={"status": "NO_SHOW", "hours_worked": 0},
+            headers=manager,
+        ).status_code
+        == 200
+    )
+    assert stored(world, Shift, shift_id).status == ShiftStatus.COMPLETED
+    with world.sessions() as db:
+        assert db.scalar(select(func.count()).select_from(AuditEvent)) == 2
+    response = client.get("/api/v1/attendance/me", headers=as_user("volunteer"))
+    assert [row["hoursWorked"] for row in response.json()] == [2.5]
