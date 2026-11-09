@@ -119,4 +119,8 @@ export const editShift = (id, body) =>
   request(`/api/v1/shifts/${id}`, { method: 'PATCH', body, auth: true })
 export const cancelShift = (id) =>
   request(`/api/v1/shifts/${id}/cancel`, { method: 'POST', auth: true })
+export const getAttendance = (id) => request(`/api/v1/shifts/${id}/attendance`, { auth: true })
+export const saveAttendance = (shiftId, signupId, body) =>
+  request(`/api/v1/shifts/${shiftId}/attendance/${signupId}`, { method: 'PUT', body, auth: true })
 export const listNotifications = () => request('/api/v1/notifications', { auth: true })
+export const listMyAttendance = () => request('/api/v1/attendance/me', { auth: true })
