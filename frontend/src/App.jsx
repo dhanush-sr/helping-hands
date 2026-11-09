@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getCurrentUser, getHealth, getToken, signOut } from './api.js'
 import AdminPanel from './AdminPanel.jsx'
 import LoginForm from './LoginForm.jsx'
+import AccountsAdmin from './AccountsAdmin.jsx'
 import ShiftForm from './ShiftForm.jsx'
 import ShiftList from './ShiftList.jsx'
 
@@ -51,7 +52,10 @@ function App() {
           </button>
         </section>
       )}
-      {user?.role === 'ADMIN' && <AdminPanel />}
+      {user?.role === 'ADMIN' && <>
+        <AccountsAdmin currentUserId={user.id} />
+        <AdminPanel />
+      </>}
       {user?.role === 'STORE_MANAGER' && <ShiftForm />}
       {user && <ShiftList canSignUp={user.role === 'VOLUNTEER'} />}
 

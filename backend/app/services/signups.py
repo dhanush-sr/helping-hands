@@ -9,13 +9,34 @@ the first one's status, except after a withdrawal, when the same row goes back t
 REQUESTED (the table is unique on shift and volunteer).
 """
 
-from sqlalchemy import select
+from datetime import timedelta
+
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import security
 from app.errors import ApiError
-from app.models import Shift, SignUp, SignUpStatus, User
-from app.services import eligibility
+from app.models import (
+    WITHDRAWAL_CUTOFF_HOURS,
+    AuditEvent,
+    Shift,
+    ShiftStatus,
+    SignUp,
+    SignUpStatus,
+    User,
+)
+from app.services import access, eligibility, rules
+
+
+def lock_shift(db: Session, shift_id: int) -> Shift:
+    # SQLite has no row locks. Start its write transaction before reading mutable state.
+    if db.get_bind().dialect.name == "sqlite":
+        db.execute(update(Shift).where(Shift.id == shift_id).values(updated_at=Shift.updated_at))
+    shift = db.get(Shift, shift_id, with_for_update=True, populate_existing=True)
+    if shift is None:
+        raise ApiError(404, "SHIFT_NOT_FOUND", "No shift with that id.")
+    return shift
 
 
 def already_signed_up() -> ApiError:
@@ -23,9 +44,7 @@ def already_signed_up() -> ApiError:
 
 
 def sign_up(db: Session, volunteer: User, shift_id: int) -> SignUp:
-    shift = db.get(Shift, shift_id)
-    if shift is None:
-        raise ApiError(404, "SHIFT_NOT_FOUND", "No shift with that id.")
+    shift = lock_shift(db, shift_id)
 
     existing = db.scalar(
         select(SignUp).where(SignUp.shift_id == shift.id, SignUp.volunteer_id == volunteer.id)
@@ -52,4 +71,39 @@ def sign_up(db: Session, volunteer: User, shift_id: int) -> SignUp:
         db.rollback()
         raise already_signed_up() from None
     db.refresh(signup)
+    return signup
+
+
+def withdraw(db: Session, volunteer: User, signup_id: int) -> SignUp:
+    signup = access.get_signup_in_scope(db, volunteer, signup_id)
+    shift = lock_shift(db, signup.shift_id)
+    db.refresh(signup)
+    if signup.status == SignUpStatus.WITHDRAWN:
+        return signup
+    if signup.status not in eligibility.HELD or shift.status not in {
+        ShiftStatus.OPEN,
+        ShiftStatus.FILLED,
+    }:
+        raise ApiError(409, "CANNOT_WITHDRAW", "This sign-up cannot be withdrawn.")
+
+    now = security.utcnow()
+    cutoff = rules.value(db, WITHDRAWAL_CUTOFF_HOURS)
+    if security.as_utc(shift.starts_at) - now < timedelta(hours=cutoff):
+        raise ApiError(
+            409, "WITHDRAWAL_CUTOFF", f"Withdrawal closes {cutoff} hours before a shift."
+        )
+
+    if signup.status == SignUpStatus.CONFIRMED and shift.status == ShiftStatus.FILLED:
+        shift.status = ShiftStatus.OPEN
+    signup.status = SignUpStatus.WITHDRAWN
+    signup.withdrawn_at = now
+    db.add(
+        AuditEvent(
+            actor_id=volunteer.id,
+            action="SIGNUP_WITHDRAWN",
+            target_id=signup.id,
+            detail="Volunteer withdrew their sign-up.",
+        )
+    )
+    db.commit()
     return signup

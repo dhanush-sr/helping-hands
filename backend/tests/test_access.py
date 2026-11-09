@@ -24,7 +24,6 @@ from app.api.deps import (
     require_manager,
     require_manager_or_admin,
     require_role,
-    require_volunteer,
     shift_in_scope,
     signup_in_scope,
 )
@@ -33,11 +32,10 @@ from app.api.v1 import health as health_api
 from app.db.session import get_db, make_engine
 from app.main import app as real_app
 from app.main import create_app
-from app.models import Base, Shift, SignUp, SignUpStatus, Store, User, UserRole
+from app.models import AuditEvent, Base, Shift, SignUp, SignUpStatus, Store, User, UserRole
 from app.services import access
 
 PASSWORD = "Test@1234"
-STARTS_AT = datetime(2026, 11, 8, 4, 30, tzinfo=UTC)  # 10:00 IST
 
 # Endpoints anyone may call without signing in (GET /api/v1/health, POST /api/v1/auth/login).
 # Everything else must check the role. Matched by function, so router prefixes don't matter.
@@ -87,14 +85,6 @@ def stand_in_router() -> APIRouter:
         db.commit()
         return {"signUpId": signup.id, "status": signup.status.value}
 
-    @router.post("/signups/{signup_id}/withdraw", dependencies=[Depends(require_volunteer)])
-    def withdraw_signup(
-        signup: SignUp = Depends(signup_in_scope), db: Session = Depends(get_db)
-    ) -> dict:
-        signup.status = SignUpStatus.WITHDRAWN
-        db.commit()
-        return {"signUpId": signup.id, "status": signup.status.value}
-
     @router.get("/stores/{store_id}/coverage")
     def store_coverage(
         store_id: int,
@@ -138,11 +128,12 @@ def world(tmp_path):
         }
         store_a = Store(name="Store A", location="A Road", manager=users["manager_a"])
         store_b = Store(name="Store B", location="B Road", manager=users["manager_b"])
+        starts_at = datetime.now(UTC).replace(second=0, microsecond=0) + timedelta(days=7)
         shift_b = Shift(
             store=store_b,
             task="Billing counter",
-            starts_at=STARTS_AT,
-            ends_at=STARTS_AT + timedelta(hours=4),
+            starts_at=starts_at,
+            ends_at=starts_at + timedelta(hours=4),
             slots=2,
         )
         signup_b = SignUp(shift=shift_b, volunteer=users["volunteer"])
@@ -475,3 +466,46 @@ def test_invalid_input_is_not_echoed_back(client):
     assert response.status_code == 422
     assert set(response.json()) == {"code", "message"}
     assert "hunter2-secret" not in response.text
+
+
+def test_admin_manages_accounts_and_rules(client, world, as_user):
+    admin = as_user("admin")
+    volunteer = as_user("volunteer")
+    users_path = "/api/v1/admin/users"
+    rules_path = "/api/v1/admin/rules"
+    assert client.get(users_path, headers=volunteer).status_code == 403
+    assert client.get(rules_path, headers=volunteer).status_code == 403
+
+    account = {"email": "new@example.org", "password": PASSWORD, "full_name": "New Manager"}
+    response = client.post(users_path, json={**account, "role": "STORE_MANAGER"}, headers=admin)
+    assert response.status_code == 201, response.text
+    assert response.json()["is_active"]
+    assert "password_hash" not in response.json()
+    user_id = response.json()["id"]
+    credentials = {key: account[key] for key in ("email", "password")}
+    login = client.post("/api/v1/auth/login", json=credentials)
+    assert login.json()["user"]["role"] == "STORE_MANAGER"
+
+    response = client.patch(
+        f"{users_path}/{user_id}", json={"role": "VOLUNTEER", "is_active": False}, headers=admin
+    )
+    assert response.status_code == 200
+    assert client.post("/api/v1/auth/login", json=credentials).status_code == 403
+    session = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    assert client.get("/api/v1/auth/me", headers=session).status_code == 401
+    with world.sessions() as db:
+        audit = db.scalar(select(AuditEvent).where(AuditEvent.target_id == user_id))
+        assert audit.action == "USER_ROLE_CHANGED"
+
+    rules = client.get(rules_path, headers=admin).json()
+    assert rules == {"weekly_hour_limit": 8, "min_notice_hours": 12, "withdrawal_cutoff_hours": 24}
+    changed = {**rules, "withdrawal_cutoff_hours": 200}
+    assert client.put(rules_path, json=changed, headers=admin).status_code == 200
+    assert (
+        client.put(rules_path, json={**changed, "min_notice_hours": 0}, headers=admin).status_code
+        == 422
+    )
+    path = f"/api/v1/signups/{world.ids.signup_b}/withdraw"
+    assert client.post(path, headers=volunteer).json()["code"] == "WITHDRAWAL_CUTOFF"
+    assert client.put(rules_path, json=rules, headers=admin).status_code == 200
+    assert client.post(path, headers=volunteer).status_code == 200

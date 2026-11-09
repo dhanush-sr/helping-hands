@@ -2,11 +2,12 @@
 
 from fastapi import APIRouter
 
-from app.api.v1 import auth, busy_periods, health, shifts, signups, stores
+from app.api.v1 import admin, auth, busy_periods, health, shifts, signups, stores
 
 api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(auth.router)
+api_router.include_router(admin.router)
 api_router.include_router(stores.router)
 api_router.include_router(busy_periods.router)
 api_router.include_router(shifts.router)

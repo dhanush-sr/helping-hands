@@ -104,3 +104,12 @@ export function listShifts(filters = {}) {
 export function signUpForShift(shiftId) {
   return request(`/api/v1/shifts/${shiftId}/signups`, { method: 'POST', auth: true })
 }
+
+export const listUsers = () => request('/api/v1/admin/users', { auth: true })
+export const createUser = (body) =>
+  request('/api/v1/admin/users', { method: 'POST', body, auth: true })
+export const updateUser = (id, body) =>
+  request(`/api/v1/admin/users/${id}`, { method: 'PATCH', body, auth: true })
+export const getRules = () => request('/api/v1/admin/rules', { auth: true })
+export const saveRules = (body) =>
+  request('/api/v1/admin/rules', { method: 'PUT', body, auth: true })
