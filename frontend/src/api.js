@@ -124,3 +124,9 @@ export const saveAttendance = (shiftId, signupId, body) =>
   request(`/api/v1/shifts/${shiftId}/attendance/${signupId}`, { method: 'PUT', body, auth: true })
 export const listNotifications = () => request('/api/v1/notifications', { auth: true })
 export const listMyAttendance = () => request('/api/v1/attendance/me', { auth: true })
+
+// Approvals (HH-24). Managers see who asked for a shift and decide on each request.
+export const getShiftSignUps = (shiftId) =>
+  request(`/api/v1/shifts/${shiftId}/signups`, { auth: true })
+export const decideSignUp = (signupId, decision) =>
+  request(`/api/v1/signups/${signupId}`, { method: 'PATCH', body: { decision }, auth: true })
