@@ -11,32 +11,14 @@ REQUESTED (the table is unique on shift and volunteer).
 
 from datetime import timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import security
 from app.errors import ApiError
-from app.models import (
-    WITHDRAWAL_CUTOFF_HOURS,
-    AuditEvent,
-    Shift,
-    ShiftStatus,
-    SignUp,
-    SignUpStatus,
-    User,
-)
-from app.services import access, eligibility, rules
-
-
-def lock_shift(db: Session, shift_id: int) -> Shift:
-    # SQLite has no row locks. Start its write transaction before reading mutable state.
-    if db.get_bind().dialect.name == "sqlite":
-        db.execute(update(Shift).where(Shift.id == shift_id).values(updated_at=Shift.updated_at))
-    shift = db.get(Shift, shift_id, with_for_update=True, populate_existing=True)
-    if shift is None:
-        raise ApiError(404, "SHIFT_NOT_FOUND", "No shift with that id.")
-    return shift
+from app.models import WITHDRAWAL_CUTOFF_HOURS, AuditEvent, ShiftStatus, SignUp, SignUpStatus, User
+from app.services import access, eligibility, rules, shifts
 
 
 def already_signed_up() -> ApiError:
@@ -44,7 +26,7 @@ def already_signed_up() -> ApiError:
 
 
 def sign_up(db: Session, volunteer: User, shift_id: int) -> SignUp:
-    shift = lock_shift(db, shift_id)
+    shift = shifts.lock_shift(db, shift_id)
 
     existing = db.scalar(
         select(SignUp).where(SignUp.shift_id == shift.id, SignUp.volunteer_id == volunteer.id)
@@ -76,7 +58,7 @@ def sign_up(db: Session, volunteer: User, shift_id: int) -> SignUp:
 
 def withdraw(db: Session, volunteer: User, signup_id: int) -> SignUp:
     signup = access.get_signup_in_scope(db, volunteer, signup_id)
-    shift = lock_shift(db, signup.shift_id)
+    shift = shifts.lock_shift(db, signup.shift_id)
     db.refresh(signup)
     if signup.status == SignUpStatus.WITHDRAWN:
         return signup

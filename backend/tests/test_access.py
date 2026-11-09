@@ -1,7 +1,7 @@
 """HH-12 role and store checks: TC-AUTH-03, TC-AUTH-04, sign-up scope and deny by default.
 
-Posting a shift uses the real endpoint (HH-15). Editing shifts and deciding or withdrawing
-sign-ups arrive with HH-22, HH-24 and HH-26; until then these tests add small stand-in
+Posting, editing and withdrawal use the real endpoints. Sign-up decisions and coverage
+use small stand-in
 endpoints to a copy of the app, wired the way the real ones must be (a ``require_*`` role
 check plus the store-scope helpers). When a real endpoint lands, point its test here at it
 and delete the stand-in.
@@ -24,7 +24,6 @@ from app.api.deps import (
     require_manager,
     require_manager_or_admin,
     require_role,
-    shift_in_scope,
     signup_in_scope,
 )
 from app.api.v1 import auth as auth_api
@@ -32,7 +31,16 @@ from app.api.v1 import health as health_api
 from app.db.session import get_db, make_engine
 from app.main import app as real_app
 from app.main import create_app
-from app.models import AuditEvent, Base, Shift, SignUp, SignUpStatus, Store, User, UserRole
+from app.models import (
+    AuditEvent,
+    Base,
+    Shift,
+    SignUp,
+    SignUpStatus,
+    Store,
+    User,
+    UserRole,
+)
 from app.services import access
 
 PASSWORD = "Test@1234"
@@ -53,24 +61,12 @@ USERS = {
 # --- stand-in endpoints, shaped like SAD 4.3 -----------------------------------------------
 
 
-class ShiftEdit(BaseModel):
-    slots: int = Field(ge=1)
-
-
 class Decision(BaseModel):
     decision: str = Field(pattern="^(APPROVE|DECLINE)$")
 
 
 def stand_in_router() -> APIRouter:
     router = APIRouter(prefix="/api/v1")
-
-    @router.patch("/shifts/{shift_id}", dependencies=[Depends(require_manager)])
-    def edit_shift(
-        body: ShiftEdit, shift: Shift = Depends(shift_in_scope), db: Session = Depends(get_db)
-    ) -> dict:
-        shift.slots = body.slots
-        db.commit()
-        return {"shiftId": shift.id, "slots": shift.slots}
 
     @router.patch("/signups/{signup_id}")
     def decide_signup(
@@ -264,7 +260,7 @@ def test_require_role_needs_at_least_one_role():
 
 def test_manager_cannot_edit_another_stores_shift(client, world, as_user):  # TC-AUTH-04
     response = client.patch(
-        f"/api/v1/shifts/{world.ids.shift_b}", json={"slots": 9}, headers=as_user("manager_a")
+        f"/api/v1/shifts/{world.ids.shift_b}", json={"slotsNeeded": 9}, headers=as_user("manager_a")
     )
 
     assert response.status_code == 403
@@ -274,7 +270,7 @@ def test_manager_cannot_edit_another_stores_shift(client, world, as_user):  # TC
 
 def test_manager_edits_their_own_stores_shift(client, world, as_user):
     response = client.patch(
-        f"/api/v1/shifts/{world.ids.shift_b}", json={"slots": 3}, headers=as_user("manager_b")
+        f"/api/v1/shifts/{world.ids.shift_b}", json={"slotsNeeded": 3}, headers=as_user("manager_b")
     )
     assert response.status_code == 200
     assert stored(world, Shift, world.ids.shift_b).slots == 3
@@ -342,7 +338,7 @@ def test_scope_follows_the_current_store_manager(client, world, as_user):
         db.get(Store, world.ids.store_b).manager_id = None
         db.commit()
     response = client.patch(
-        f"/api/v1/shifts/{world.ids.shift_b}", json={"slots": 3}, headers=as_user("manager_b")
+        f"/api/v1/shifts/{world.ids.shift_b}", json={"slotsNeeded": 3}, headers=as_user("manager_b")
     )
     assert response.status_code == 403
 
@@ -350,7 +346,7 @@ def test_scope_follows_the_current_store_manager(client, world, as_user):
 @pytest.mark.parametrize(
     ("method", "path", "body", "code"),
     [
-        ("PATCH", "/api/v1/shifts/999", {"slots": 1}, "SHIFT_NOT_FOUND"),
+        ("PATCH", "/api/v1/shifts/999", {"slotsNeeded": 1}, "SHIFT_NOT_FOUND"),
         ("PATCH", "/api/v1/signups/999", {"decision": "APPROVE"}, "SIGNUP_NOT_FOUND"),
         ("POST", "/api/v1/shifts", new_shift_body(999), "STORE_NOT_FOUND"),
     ],
@@ -362,7 +358,9 @@ def test_unknown_ids_give_404(client, as_user, method, path, body, code):
 
 
 def test_unknown_id_is_still_403_for_the_wrong_role(client, as_user):
-    response = client.patch("/api/v1/shifts/999", json={"slots": 1}, headers=as_user("volunteer"))
+    response = client.patch(
+        "/api/v1/shifts/999", json={"slotsNeeded": 1}, headers=as_user("volunteer")
+    )
     assert response.status_code == 403
 
 
@@ -453,7 +451,9 @@ def test_framework_errors_use_the_same_shape(client, world, as_user):
     assert wrong_method.json()["code"] == "METHOD_NOT_ALLOWED"
 
     bad_input = client.patch(
-        f"/api/v1/shifts/{world.ids.shift_b}", json={"slots": 0}, headers=as_user("manager_b")
+        f"/api/v1/shifts/{world.ids.shift_b}",
+        json={"slotsNeeded": "many"},
+        headers=as_user("manager_b"),
     )
     assert bad_input.status_code == 422
     assert bad_input.json()["code"] == "VALIDATION_ERROR"
@@ -509,3 +509,30 @@ def test_admin_manages_accounts_and_rules(client, world, as_user):
     assert client.post(path, headers=volunteer).json()["code"] == "WITHDRAWAL_CUTOFF"
     assert client.put(rules_path, json=rules, headers=admin).status_code == 200
     assert client.post(path, headers=volunteer).status_code == 200
+
+
+def test_shift_edit_capacity_and_cancel_notifications(client, world, as_user):
+    path = f"/api/v1/shifts/{world.ids.shift_b}"
+    manager = as_user("manager_b")
+    with world.sessions() as db:
+        signup = db.get(SignUp, world.ids.signup_b)
+        signup.status = SignUpStatus.CONFIRMED
+        other = db.scalar(select(User).where(User.email == "other_volunteer@example.org"))
+        db.add(
+            SignUp(shift_id=signup.shift_id, volunteer_id=other.id, status=SignUpStatus.CONFIRMED)
+        )
+        db.commit()
+
+    assert (
+        client.patch(path, json={"slotsNeeded": 1}, headers=manager).json()["code"]
+        == "SLOTS_BELOW_CONFIRMED"
+    )
+    assert client.patch(path, json={"task": "Inventory"}, headers=manager).status_code == 200
+    assert client.post(f"{path}/cancel", headers=as_user("manager_a")).status_code == 403
+    for _ in range(2):
+        response = client.post(f"{path}/cancel", headers=manager)
+        assert response.json()["status"] == "CANCELLED"
+    for volunteer in ("volunteer", "other_volunteer"):
+        response = client.get("/api/v1/notifications", headers=as_user(volunteer))
+        assert len(response.json()) == 2
+        assert "cancelled" in response.json()[0]["message"]

@@ -12,12 +12,21 @@ Other stores give 403 STORE_FORBIDDEN and unknown stores 404 (store scope, HH-12
 
 from datetime import UTC, date, datetime, time, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app import security
 from app.errors import ApiError
-from app.models import BusyPeriod, Shift, ShiftStatus, SignUpStatus, Store, User
+from app.models import (
+    AuditEvent,
+    BusyPeriod,
+    Notification,
+    Shift,
+    ShiftStatus,
+    SignUpStatus,
+    Store,
+    User,
+)
 from app.services import access
 
 STORE_TIMEZONE = timezone(timedelta(hours=5, minutes=30), "IST")
@@ -49,6 +58,35 @@ def create_shift(
     notes: str | None = None,
 ) -> Shift:
     store = access.get_store_in_scope(db, manager, store_id)
+    starts_at, ends_at, busy_period = validate_shift(
+        db, store, day, start_time, end_time, slots, busy_period_id
+    )
+    shift = Shift(
+        store=store,
+        busy_period=busy_period,
+        task=task,
+        description=notes or None,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        slots=slots,
+        status=ShiftStatus.OPEN,
+        created_by=manager,
+    )
+    db.add(shift)
+    db.commit()
+    db.refresh(shift)
+    return shift
+
+
+def validate_shift(
+    db: Session,
+    store: Store,
+    day: date,
+    start_time: time,
+    end_time: time,
+    slots: int,
+    busy_period_id: int | None,
+) -> tuple[datetime, datetime, BusyPeriod | None]:
     if not store.is_active:
         raise ApiError(400, "STORE_INACTIVE", "This store is deactivated.")
 
@@ -75,20 +113,85 @@ def create_shift(
                 f"({busy_period.start_date} to {busy_period.end_date}).",
             )
 
-    shift = Shift(
-        store=store,
-        busy_period=busy_period,
-        task=task,
-        description=notes or None,
-        starts_at=starts_at,
-        ends_at=ends_at,
-        slots=slots,
-        status=ShiftStatus.OPEN,
-        created_by=manager,
+    return starts_at, ends_at, busy_period
+
+
+def lock_shift(db: Session, shift_id: int) -> Shift:
+    # SQLite has no row locks. Start its write transaction before reading mutable state.
+    if db.get_bind().dialect.name == "sqlite":
+        db.execute(update(Shift).where(Shift.id == shift_id).values(updated_at=Shift.updated_at))
+    shift = db.get(Shift, shift_id, with_for_update=True, populate_existing=True)
+    if shift is None:
+        raise ApiError(404, "SHIFT_NOT_FOUND", "No shift with that id.")
+    return shift
+
+
+def change_shift(db: Session, manager: User, shift_id: int, changes: dict | None) -> Shift:
+    shift = lock_shift(db, shift_id)
+    access.ensure_store_scope(manager, shift.store)
+    if changes is None and shift.status == ShiftStatus.CANCELLED:
+        return shift
+    if shift.status not in {ShiftStatus.OPEN, ShiftStatus.FILLED} or (
+        security.as_utc(shift.starts_at) <= security.utcnow()
+    ):
+        raise ApiError(409, "SHIFT_NOT_EDITABLE", "Only upcoming open or filled shifts can change.")
+
+    if changes is None:
+        shift.status = ShiftStatus.CANCELLED
+        action, message = "SHIFT_CANCELLED", f"Your shift {shift.task} was cancelled."
+    else:
+        starts, ends = local(shift.starts_at), local(shift.ends_at)
+        slots = changes.get("slots_needed", shift.slots)
+        new_start, new_end, period = validate_shift(
+            db,
+            shift.store,
+            changes.get("date", starts.date()),
+            changes.get("start_time", starts.time()),
+            changes.get("end_time", ends.time()),
+            slots,
+            changes.get("busy_period_id", shift.busy_period_id),
+        )
+        confirmed = sum(signup.status == SignUpStatus.CONFIRMED for signup in shift.signups)
+        if slots < confirmed:
+            raise ApiError(
+                400, "SLOTS_BELOW_CONFIRMED", "Slots cannot be below confirmed sign-ups."
+            )
+        values = (
+            new_start,
+            new_end,
+            period,
+            slots,
+            changes.get("task", shift.task),
+            changes.get("notes", shift.description) or None,
+        )
+        current = (
+            security.as_utc(shift.starts_at),
+            security.as_utc(shift.ends_at),
+            shift.busy_period,
+            shift.slots,
+            shift.task,
+            shift.description,
+        )
+        if values == current:
+            return shift
+        (
+            shift.starts_at,
+            shift.ends_at,
+            shift.busy_period,
+            shift.slots,
+            shift.task,
+            shift.description,
+        ) = values
+        shift.status = ShiftStatus.FILLED if slots == confirmed else ShiftStatus.OPEN
+        action, message = "SHIFT_EDITED", f"Your shift {shift.task} was updated."
+
+    db.add(AuditEvent(actor_id=manager.id, action=action, target_id=shift.id, detail=message))
+    db.add_all(
+        Notification(user_id=signup.volunteer_id, shift_id=shift.id, message=message)
+        for signup in shift.signups
+        if signup.status in {SignUpStatus.REQUESTED, SignUpStatus.CONFIRMED}
     )
-    db.add(shift)
     db.commit()
-    db.refresh(shift)
     return shift
 
 
@@ -160,3 +263,19 @@ def list_shifts(
 def local(value: datetime) -> datetime:
     """A stored (UTC) time as store-local time."""
     return security.as_utc(value).astimezone(STORE_TIMEZONE)
+
+
+def managed_shifts(db: Session, manager: User) -> list[Shift]:
+    return list(
+        db.scalars(
+            select(Shift)
+            .join(Shift.store)
+            .where(Store.manager_id == manager.id)
+            .options(
+                selectinload(Shift.store),
+                selectinload(Shift.busy_period),
+                selectinload(Shift.signups),
+            )
+            .order_by(Shift.starts_at.desc(), Shift.id)
+        )
+    )
