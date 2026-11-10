@@ -19,13 +19,18 @@ class Attendance(TimestampMixin, Base):
 
 
 class Notification(Base):
+    """One in-app notice for one person (HH-27). In-app only: no email or SMS."""
+
     __tablename__ = "notifications"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    shift_id: Mapped[int] = mapped_column(ForeignKey("shifts.id"))
+    # Empty for a notice that is not about a shift, such as a role or rule change.
+    shift_id: Mapped[int | None] = mapped_column(ForeignKey("shifts.id"))
     message: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # NULL means unread; the bell counts these.
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class AuditEvent(Base):

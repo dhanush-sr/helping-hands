@@ -122,7 +122,10 @@ export const cancelShift = (id) =>
 export const getAttendance = (id) => request(`/api/v1/shifts/${id}/attendance`, { auth: true })
 export const saveAttendance = (shiftId, signupId, body) =>
   request(`/api/v1/shifts/${shiftId}/attendance/${signupId}`, { method: 'PUT', body, auth: true })
+// Notifications (HH-27). The list comes back as {unread, notices}; opening marks them read.
 export const listNotifications = () => request('/api/v1/notifications', { auth: true })
+export const markNotificationsRead = () =>
+  request('/api/v1/notifications/read', { method: 'POST', auth: true })
 export const listMyAttendance = () => request('/api/v1/attendance/me', { auth: true })
 
 // Approvals (HH-24). Managers see who asked for a shift and decide on each request.

@@ -177,3 +177,14 @@ button.secondary {
   justify-content: space-between;
   align-items: center;
 }
+
+.notices {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.notices li {
+  padding: 6px 0;
+  border-bottom: 1px solid #e1e4e8;
+}

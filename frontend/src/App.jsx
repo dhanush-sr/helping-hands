@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getCurrentUser, getHealth, getToken, signOut } from './api.js'
 import AdminPanel from './AdminPanel.jsx'
 import LoginForm from './LoginForm.jsx'
+import NotificationBell from './NotificationBell.jsx'
 import AccountsAdmin from './AccountsAdmin.jsx'
 import ManagerShifts from './ManagerShifts.jsx'
 import VolunteerActivity from './VolunteerActivity.jsx'
@@ -54,6 +55,7 @@ function App() {
           </button>
         </section>
       )}
+      {user && <NotificationBell />}
       {user?.role === 'ADMIN' && <>
         <AccountsAdmin currentUserId={user.id} />
         <AdminPanel />

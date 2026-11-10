@@ -515,9 +515,10 @@ def test_shift_edit_capacity_and_cancel_notifications(client, world, as_user):
         response = client.post(f"{path}/cancel", headers=manager)
         assert response.json()["status"] == "CANCELLED"
     for volunteer in ("volunteer", "other_volunteer"):
-        response = client.get("/api/v1/notifications", headers=as_user(volunteer))
-        assert len(response.json()) == 2
-        assert "cancelled" in response.json()[0]["message"]
+        body = client.get("/api/v1/notifications", headers=as_user(volunteer)).json()
+        assert len(body["notices"]) == 2
+        assert body["unread"] == 2  # nothing opened yet (HH-27)
+        assert "cancelled" in body["notices"][0]["message"]
 
 
 def test_attendance_is_scoped_audited_and_completes_shift(client, world, as_user, monkeypatch):
