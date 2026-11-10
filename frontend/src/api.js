@@ -138,3 +138,11 @@ export const decideSignUp = (signupId, decision) =>
 export const getMySchedule = () => request('/api/v1/me/schedule', { auth: true })
 export const withdrawSignUp = (signupId) =>
   request(`/api/v1/signups/${signupId}/withdraw`, { method: 'POST', auth: true })
+
+// Audit history (HH-33). Admin only; empty filters are left out of the query.
+export const getAuditHistory = (filters = {}) => {
+  const query = new URLSearchParams(
+    Object.entries(filters).filter(([, value]) => value !== '' && value != null),
+  ).toString()
+  return request(`/api/v1/admin/audit${query ? `?${query}` : ''}`, { auth: true })
+}

@@ -7,6 +7,7 @@ import {
   listStores,
   updateStore,
 } from './api.js'
+import AuditLog from './AuditLog.jsx'
 
 // Admin pages for stores and busy periods (HH-13).
 function AdminPanel() {
@@ -14,6 +15,7 @@ function AdminPanel() {
     <>
       <StoresAdmin />
       <BusyPeriodsAdmin />
+      <AuditLog />
     </>
   )
 }

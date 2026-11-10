@@ -34,11 +34,19 @@ class Notification(Base):
 
 
 class AuditEvent(Base):
+    """One thing someone changed (HH-33, HH-SR-007).
+
+    Append-only: nothing in the app updates or deletes a row here, so the history of who
+    changed what, and when, can be trusted.
+    """
+
     __tablename__ = "audit_events"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     actor_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     action: Mapped[str] = mapped_column(String(40))
+    # What kind of thing target_id points at: SHIFT, SIGNUP, USER or OTHER.
+    entity_type: Mapped[str] = mapped_column(String(20), server_default="OTHER")
     target_id: Mapped[int] = mapped_column()
     detail: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

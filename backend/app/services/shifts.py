@@ -18,7 +18,6 @@ from sqlalchemy.orm import Session, selectinload
 from app import security
 from app.errors import ApiError
 from app.models import (
-    AuditEvent,
     BusyPeriod,
     Notification,
     Shift,
@@ -27,7 +26,7 @@ from app.models import (
     Store,
     User,
 )
-from app.services import access
+from app.services import access, audit
 
 STORE_TIMEZONE = timezone(timedelta(hours=5, minutes=30), "IST")
 MAX_SLOTS = 100
@@ -185,7 +184,7 @@ def change_shift(db: Session, manager: User, shift_id: int, changes: dict | None
         shift.status = ShiftStatus.FILLED if slots == confirmed else ShiftStatus.OPEN
         action, message = "SHIFT_EDITED", f"Your shift {shift.task} was updated."
 
-    db.add(AuditEvent(actor_id=manager.id, action=action, target_id=shift.id, detail=message))
+    audit.record(db, manager, action, shift.id, message)
     db.add_all(
         Notification(user_id=signup.volunteer_id, shift_id=shift.id, message=message)
         for signup in shift.signups

@@ -19,14 +19,13 @@ from app import security
 from app.errors import ApiError
 from app.models import (
     WITHDRAWAL_CUTOFF_HOURS,
-    AuditEvent,
     Shift,
     ShiftStatus,
     SignUp,
     SignUpStatus,
     User,
 )
-from app.services import access, eligibility, notifications, rules, shifts
+from app.services import access, audit, eligibility, notifications, rules, shifts
 
 
 def already_signed_up() -> ApiError:
@@ -90,13 +89,8 @@ def withdraw(db: Session, volunteer: User, signup_id: int) -> SignUp:
         shift.status = ShiftStatus.OPEN
     signup.status = SignUpStatus.WITHDRAWN
     signup.withdrawn_at = now
-    db.add(
-        AuditEvent(
-            actor_id=volunteer.id,
-            action="SIGNUP_WITHDRAWN",
-            target_id=signup.id,
-            detail="Volunteer withdrew their sign-up.",
-        )
+    audit.record(
+        db, volunteer, "SIGNUP_WITHDRAWN", signup.id, "Volunteer withdrew their sign-up."
     )
     notifications.notify_store_manager(
         db, shift, f"{volunteer.full_name} withdrew from {shift.task}."
@@ -150,9 +144,7 @@ def decide(db: Session, manager: User, signup_id: int, approve: bool) -> SignUp:
     signup.decided_by_id = manager.id
     signup.decided_at = now
     notifications.notify(db, signup.volunteer_id, message, shift)
-    db.add(
-        AuditEvent(actor_id=manager.id, action=action, target_id=signup.id, detail=message)
-    )
+    audit.record(db, manager, action, signup.id, message)
     db.commit()
     db.refresh(signup)
     return signup
