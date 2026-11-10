@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { cancelShift, getAttendance, listManagedShifts, saveAttendance } from './api.js'
+import {
+  cancelShift,
+  decideSignUp,
+  getAttendance,
+  getShiftSignUps,
+  listManagedShifts,
+  saveAttendance,
+} from './api.js'
 import ShiftForm from './ShiftForm.jsx'
 
 function AttendanceEntry({ row, shiftId, onSaved }) {
@@ -63,10 +70,76 @@ function AttendanceRoster({ shiftId, onSaved }) {
   )
 }
 
+
+// Pending requests for one shift, with the manager's decision on each (HH-24).
+function SignUpRequests({ shiftId, onDecided }) {
+  const [data, setData] = useState(null)
+  const [busyId, setBusyId] = useState(null)
+  const [error, setError] = useState('')
+
+  const load = useCallback(() => {
+    getShiftSignUps(shiftId)
+      .then(setData)
+      .catch((err) => setError(err.message))
+  }, [shiftId])
+
+  useEffect(load, [load])
+
+  async function decide(signUpId, decision) {
+    setBusyId(signUpId)
+    setError('')
+    try {
+      await decideSignUp(signUpId, decision)
+      load()
+      onDecided()
+    } catch (err) {
+      setError(err.message)
+      load()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  if (!data) return <p>{error || 'Loading requests…'}</p>
+
+  const pending = data.signUps.filter((s) => s.status === 'REQUESTED')
+  const decided = data.signUps.filter((s) => s.status !== 'REQUESTED')
+
+  return (
+    <div className="requests">
+      <p className="error" role="alert">{error}</p>
+      <p>
+        {data.freeSlots} of {data.slotsNeeded} slots free
+        {data.freeSlots === 0 && ' · this shift is full'}
+      </p>
+      {pending.length === 0 && <p>No one is waiting for a decision.</p>}
+      <ul className="shift-list">
+        {pending.map((signUp) => (
+          <li key={signUp.signUpId} className="request">
+            <span>{signUp.volunteer}</span>
+            <span>
+              <button type="button" disabled={busyId === signUp.signUpId || data.freeSlots === 0}
+                onClick={() => decide(signUp.signUpId, 'APPROVE')}>Approve</button>{' '}
+              <button type="button" className="secondary" disabled={busyId === signUp.signUpId}
+                onClick={() => decide(signUp.signUpId, 'DECLINE')}>Decline</button>
+            </span>
+          </li>
+        ))}
+      </ul>
+      {decided.length > 0 && (
+        <p className="muted">
+          Decided: {decided.map((s) => `${s.volunteer} (${s.status.toLowerCase()})`).join(', ')}
+        </p>
+      )}
+    </div>
+  )
+}
+
 export default function ManagerShifts({ onChanged }) {
   const [shifts, setShifts] = useState([])
   const [editing, setEditing] = useState(null)
   const [attendance, setAttendance] = useState(null)
+  const [requests, setRequests] = useState(null)
   const [cancelId, setCancelId] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -123,6 +196,11 @@ export default function ManagerShifts({ onChanged }) {
                 </div>}
                 {editable && editing === id && <ShiftForm key={id} shift={shift}
                   onSaved={() => { setEditing(null); saved() }} onDismiss={() => setEditing(null)} />}
+                {!started && shift.status !== 'CANCELLED' && <button type="button"
+                  onClick={() => setRequests(requests === id ? null : id)}>
+                  {requests === id ? 'Hide requests' : 'Requests'}
+                </button>}
+                {requests === id && <SignUpRequests shiftId={id} onDecided={saved} />}
                 {started && shift.status !== 'CANCELLED' && <button type="button"
                   onClick={() => setAttendance(attendance === id ? null : id)}>
                   {attendance === id ? 'Hide attendance' : 'Attendance'}

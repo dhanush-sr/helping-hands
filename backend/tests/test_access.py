@@ -15,17 +15,14 @@ import pytest
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
-from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app import security
 from app.api.deps import (
     get_current_session,
-    require_manager,
     require_manager_or_admin,
     require_role,
-    signup_in_scope,
 )
 from app.api.v1 import auth as auth_api
 from app.api.v1 import health as health_api
@@ -63,25 +60,8 @@ USERS = {
 # --- stand-in endpoints, shaped like SAD 4.3 -----------------------------------------------
 
 
-class Decision(BaseModel):
-    decision: str = Field(pattern="^(APPROVE|DECLINE)$")
-
-
 def stand_in_router() -> APIRouter:
     router = APIRouter(prefix="/api/v1")
-
-    @router.patch("/signups/{signup_id}")
-    def decide_signup(
-        body: Decision,
-        user: User = Depends(require_manager),
-        signup: SignUp = Depends(signup_in_scope),
-        db: Session = Depends(get_db),
-    ) -> dict:
-        approved = body.decision == "APPROVE"
-        signup.status = SignUpStatus.CONFIRMED if approved else SignUpStatus.DECLINED
-        signup.decided_by_id = user.id
-        db.commit()
-        return {"signUpId": signup.id, "status": signup.status.value}
 
     @router.get("/stores/{store_id}/coverage")
     def store_coverage(
