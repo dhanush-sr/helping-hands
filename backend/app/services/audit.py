@@ -9,13 +9,13 @@ writes to the history either, so an event can only arrive as a side effect of th
 it describes.
 """
 
-from datetime import date, datetime, time, timedelta
+from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import AuditEvent, User
-from app.services.shifts import STORE_TIMEZONE
+from app.store_clock import end_of_day, start_of_day
 
 SHIFT = "SHIFT"
 SIGNUP = "SIGNUP"
@@ -79,10 +79,10 @@ def history(
         query = query.where(AuditEvent.action == action)
     if since is not None:
         query = query.where(
-            AuditEvent.created_at >= datetime.combine(since, time(0), STORE_TIMEZONE)
+            AuditEvent.created_at >= start_of_day(since)
         )
     if until is not None:
-        end = datetime.combine(until, time(0), STORE_TIMEZONE) + timedelta(days=1)
+        end = end_of_day(until)
         query = query.where(AuditEvent.created_at < end)
     return [(event, name) for event, name in db.execute(query)]
 

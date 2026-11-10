@@ -10,7 +10,7 @@ times (IST, as the SAD's API uses) and are stored in UTC. A shift is refused wit
 Other stores give 403 STORE_FORBIDDEN and unknown stores 404 (store scope, HH-12).
 """
 
-from datetime import UTC, date, datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
@@ -27,8 +27,9 @@ from app.models import (
     User,
 )
 from app.services import access, audit
+from app.store_clock import STORE_TIMEZONE, store_time
 
-STORE_TIMEZONE = timezone(timedelta(hours=5, minutes=30), "IST")
+# Re-exported so the many callers of shifts.store_time keep working.
 MAX_SLOTS = 100
 
 
@@ -36,11 +37,6 @@ def free_slots(shift: Shift) -> int:
     # ponytail: counts all CONFIRMED sign-ups in Python; a COUNT query when lists get long.
     confirmed = sum(1 for signup in shift.signups if signup.status == SignUpStatus.CONFIRMED)
     return max(shift.slots - confirmed, 0)
-
-
-def store_time(day: date, at: time) -> datetime:
-    """A store-local date and time as a UTC datetime."""
-    return datetime.combine(day, at, STORE_TIMEZONE).astimezone(UTC)
 
 
 def create_shift(

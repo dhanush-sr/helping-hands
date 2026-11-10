@@ -146,3 +146,11 @@ export const getAuditHistory = (filters = {}) => {
   ).toString()
   return request(`/api/v1/admin/audit${query ? `?${query}` : ''}`, { auth: true })
 }
+
+// Reports (HH-32): coverage, hours and no-shows, for managers and admins.
+export const getReport = (name, filters = {}) => {
+  const query = new URLSearchParams(
+    Object.entries(filters).filter(([, value]) => value !== '' && value != null),
+  ).toString()
+  return request(`/api/v1/reports/${name}${query ? `?${query}` : ''}`, { auth: true })
+}

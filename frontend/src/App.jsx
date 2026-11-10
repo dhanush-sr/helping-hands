@@ -4,6 +4,7 @@ import AdminPanel from './AdminPanel.jsx'
 import LoginForm from './LoginForm.jsx'
 import MySchedule from './MySchedule.jsx'
 import NotificationBell from './NotificationBell.jsx'
+import Reports from './Reports.jsx'
 import AccountsAdmin from './AccountsAdmin.jsx'
 import ManagerShifts from './ManagerShifts.jsx'
 import VolunteerActivity from './VolunteerActivity.jsx'
@@ -61,6 +62,7 @@ function App() {
         <AccountsAdmin currentUserId={user.id} />
         <AdminPanel />
       </>}
+      {(user?.role === 'STORE_MANAGER' || user?.role === 'ADMIN') && <Reports />}
       {user?.role === 'STORE_MANAGER' && <ManagerShifts onChanged={() => setShiftVersion((n) => n + 1)} />}
       {user?.role === 'VOLUNTEER' && <MySchedule onChanged={() => setShiftVersion((n) => n + 1)} />}
       {user?.role === 'VOLUNTEER' && <VolunteerActivity />}
