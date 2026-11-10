@@ -14,14 +14,13 @@ from app.db.session import get_db
 from app.errors import ApiError
 from app.models import (
     Attendance,
-    AuditEvent,
     Shift,
     ShiftStatus,
     SignUp,
     SignUpStatus,
     User,
 )
-from app.services import access, shifts
+from app.services import access, audit, shifts
 from app.services import notifications as notification_service
 
 router = APIRouter(tags=["attendance and notifications"])
@@ -128,13 +127,12 @@ def record(
         row.status = body.status
         row.hours_worked = body.hours_worked
         row.recorded_by_id = manager.id
-        db.add(
-            AuditEvent(
-                actor_id=manager.id,
-                action="ATTENDANCE_RECORDED",
-                target_id=signup_id,
-                detail=f"{body.status}: {body.hours_worked:g} hours",
-            )
+        audit.record(
+            db,
+            manager,
+            "ATTENDANCE_RECORDED",
+            signup_id,
+            f"{body.status}: {body.hours_worked:g} hours",
         )
         db.flush()
 

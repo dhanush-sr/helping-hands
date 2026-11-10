@@ -1,8 +1,9 @@
 """HH-20: manage accounts and volunteering rules."""
 
+from datetime import date, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
@@ -13,8 +14,8 @@ from app.api.deps import require_admin
 from app.api.v1.auth import UserOut
 from app.db.session import get_db
 from app.errors import ApiError
-from app.models import DEFAULT_SETTINGS, AuditEvent, AuthSession, Setting, User, UserRole
-from app.services import rules
+from app.models import DEFAULT_SETTINGS, AuthSession, Setting, User, UserRole
+from app.services import audit, rules
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
@@ -91,13 +92,12 @@ def edit_user(
     if user.id == actor.id and (body.role != UserRole.ADMIN or not body.is_active):
         raise ApiError(400, "SELF_LOCKOUT", "You cannot remove your own administrator access.")
     if user.role != body.role:
-        db.add(
-            AuditEvent(
-                actor_id=actor.id,
-                action="USER_ROLE_CHANGED",
-                target_id=user.id,
-                detail=f"{user.role.value} -> {body.role.value}",
-            )
+        audit.record(
+            db,
+            actor,
+            "USER_ROLE_CHANGED",
+            user.id,
+            f"{user.role.value} -> {body.role.value}",
         )
     if not body.is_active:
         db.execute(
@@ -127,3 +127,55 @@ def set_rules(body: Rules, actor: User = Depends(require_admin), db: Session = D
         setting.updated_by_id = actor.id
     db.commit()
     return body
+
+
+class AuditRow(BaseModel):
+    id: int
+    actor_id: int
+    actor: str
+    action: str
+    entity_type: str
+    target_id: int
+    detail: str
+    created_at: datetime
+
+
+class AuditPage(BaseModel):
+    """The audit history plus the choices the filters offer (HH-33)."""
+
+    events: list[AuditRow]
+    actions: list[str]
+
+
+@router.get("/audit", response_model=AuditPage)
+def audit_history(
+    actor_id: int | None = Query(default=None),
+    action: str | None = Query(default=None, max_length=40),
+    since: date | None = Query(default=None),
+    until: date | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> AuditPage:
+    """Who changed what, newest first. Admin only; the router already requires it.
+
+    There is no endpoint to add, change or remove an event: the history is written only as
+    a side effect of the change it records (HH-SR-007).
+    """
+    if since is not None and until is not None and until < since:
+        raise ApiError(400, "INVALID_DATE_RANGE", "The end date can't be before the start date.")
+    rows = audit.history(db, actor_id=actor_id, action=action, since=since, until=until)
+    return AuditPage(
+        events=[
+            AuditRow(
+                id=event.id,
+                actor_id=event.actor_id,
+                actor=name,
+                action=event.action,
+                entity_type=event.entity_type,
+                target_id=event.target_id,
+                detail=event.detail,
+                created_at=security.as_utc(event.created_at),
+            )
+            for event, name in rows
+        ],
+        actions=audit.actions(db),
+    )
