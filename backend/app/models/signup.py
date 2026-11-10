@@ -36,6 +36,8 @@ class SignUp(TimestampMixin, Base):
     decided_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # When the 24-hour reminder was sent (HH-28); empty until it goes out.
+    reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     shift: Mapped[Shift] = relationship(back_populates="signups")
     volunteer: Mapped[User] = relationship(back_populates="signups", foreign_keys=[volunteer_id])

@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -8,11 +9,23 @@ from app import __version__
 from app.api.v1.router import api_router
 from app.config import get_settings
 from app.errors import register_error_handlers
+from app.scheduler import start as start_scheduler
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Run the reminder job (HH-28) for as long as the API is up."""
+    scheduler = start_scheduler()
+    try:
+        yield
+    finally:
+        if scheduler is not None:
+            scheduler.shutdown(wait=False)
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title=settings.app_name, version=__version__)
+    app = FastAPI(title=settings.app_name, version=__version__, lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,

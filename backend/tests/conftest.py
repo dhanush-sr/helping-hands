@@ -1,3 +1,9 @@
+import os
+
+# The reminder job (HH-28) must not run during tests: they call the service directly with
+# a fixed clock. Set before app.config is imported so the setting is read with it off.
+os.environ.setdefault("HH_REMINDERS_ENABLED", "false")
+
 import pytest
 from sqlalchemy.orm import Session
 
