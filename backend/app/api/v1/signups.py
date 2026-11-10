@@ -31,6 +31,7 @@ from app.api.deps import require_manager, require_volunteer, shift_in_scope
 from app.api.v1.shifts import CamelModel
 from app.db.session import get_db
 from app.models import Shift, ShiftStatus, SignUp, SignUpStatus, User
+from app.services import schedule as schedule_service
 from app.services import shifts as shift_service
 from app.services import signups
 
@@ -135,4 +136,62 @@ def shift_signups(
             )
             for sid, name, status, made in rows
         ],
+    )
+
+
+class ScheduleEntry(CamelModel):
+    sign_up_id: int
+    shift_id: int
+    store: str
+    task: str
+    date: str
+    start_time: str
+    end_time: str
+    hours: float
+    status: SignUpStatus
+    attendance: str | None
+    hours_worked: float | None
+    can_withdraw: bool
+
+
+class MySchedule(CamelModel):
+    """A volunteer's own shifts and how much of this week's limit they have used (HH-26)."""
+
+    upcoming: list[ScheduleEntry]
+    past: list[ScheduleEntry]
+    hours_this_week: float
+    weekly_hour_limit: int
+
+
+def _entry(entry) -> ScheduleEntry:
+    day, start, end = schedule_service.local_times(entry)
+    return ScheduleEntry(
+        sign_up_id=entry.signup_id,
+        shift_id=entry.shift_id,
+        store=entry.store,
+        task=entry.task,
+        date=day,
+        start_time=start,
+        end_time=end,
+        hours=entry.hours,
+        status=entry.status,
+        attendance=entry.attendance,
+        hours_worked=entry.hours_worked,
+        can_withdraw=entry.can_withdraw,
+    )
+
+
+@router.get(
+    "/me/schedule", response_model=MySchedule, response_model_by_alias=True
+)
+def my_schedule(
+    user: User = Depends(require_volunteer), db: Session = Depends(get_db)
+) -> MySchedule:
+    upcoming, past = schedule_service.entries(db, user)
+    booked, limit = schedule_service.hours_this_week(db, user)
+    return MySchedule(
+        upcoming=[_entry(e) for e in upcoming],
+        past=[_entry(e) for e in past],
+        hours_this_week=booked,
+        weekly_hour_limit=limit,
     )

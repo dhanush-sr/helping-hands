@@ -133,3 +133,8 @@ export const getShiftSignUps = (shiftId) =>
   request(`/api/v1/shifts/${shiftId}/signups`, { auth: true })
 export const decideSignUp = (signupId, decision) =>
   request(`/api/v1/signups/${signupId}`, { method: 'PATCH', body: { decision }, auth: true })
+
+// My Schedule (HH-26): the volunteer's own upcoming and past shifts, and this week's hours.
+export const getMySchedule = () => request('/api/v1/me/schedule', { auth: true })
+export const withdrawSignUp = (signupId) =>
+  request(`/api/v1/signups/${signupId}/withdraw`, { method: 'POST', auth: true })

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getCurrentUser, getHealth, getToken, signOut } from './api.js'
 import AdminPanel from './AdminPanel.jsx'
 import LoginForm from './LoginForm.jsx'
+import MySchedule from './MySchedule.jsx'
 import NotificationBell from './NotificationBell.jsx'
 import AccountsAdmin from './AccountsAdmin.jsx'
 import ManagerShifts from './ManagerShifts.jsx'
@@ -61,6 +62,7 @@ function App() {
         <AdminPanel />
       </>}
       {user?.role === 'STORE_MANAGER' && <ManagerShifts onChanged={() => setShiftVersion((n) => n + 1)} />}
+      {user?.role === 'VOLUNTEER' && <MySchedule onChanged={() => setShiftVersion((n) => n + 1)} />}
       {user?.role === 'VOLUNTEER' && <VolunteerActivity />}
       {user && <ShiftList key={shiftVersion} canSignUp={user.role === 'VOLUNTEER'} />}
 
