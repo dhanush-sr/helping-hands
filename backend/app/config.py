@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     secret_key: str = "dev-only-secret-key-change-me-before-deploying"
     session_idle_minutes: int = 30  # signed out after this long without a request
     session_max_hours: int = 12  # hard limit on one session, even when active
+    # Shift reminders (HH-28). Off in tests, which call the service with a fixed clock.
+    reminders_enabled: bool = True
+    reminder_interval_minutes: int = 15
+
     max_failed_logins: int = 5  # wrong passwords in a row before the account locks
     lockout_minutes: int = 15
 

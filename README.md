@@ -257,6 +257,80 @@ before anything about their own schedule.
 - **The notice and limit are settings**, read through `app/services/rules.py`, so when an
   admin changes them (HH-20) the checks follow straight away.
 
+## Approving sign-ups
+
+HH-24 (HH-F-014, HH-F-015, HH-NF-002). The store manager decides on each request:
+
+| Method and path | Who | Does |
+|---|---|---|
+| `GET /api/v1/shifts/{shiftId}/signups` | that shift's manager | who asked, pending first |
+| `PATCH /api/v1/signups/{signUpId}` | that shift's manager | `{"decision": "APPROVE"}` or `"DECLINE"` |
+
+Returns `{"signUpId", "status", "shiftStatus"}`. Approving the last free slot sets the
+shift to `FILLED`, so it drops out of the open list; a withdrawal opens it again.
+
+**No overbooking.** An approval locks the shift row, counts the confirmed sign-ups and
+only then confirms, all in one transaction. Two managers approving the last slot at the
+same moment are serialised and the second gets 409 `SHIFT_FULL`. That is TC-CONC-01, the
+must-pass case in the Test Plan, and `tests/test_decisions.py` runs it with real threads.
+
+## Notifications
+
+HH-27 (HH-F-017). In-app only: nothing is emailed or texted.
+
+| Method and path | Does |
+|---|---|
+| `GET /api/v1/notifications` | `{"unread": 2, "notices": [...]}`, newest first |
+| `POST /api/v1/notifications/read` | marks them read, so the count clears |
+
+Managers hear about new sign-ups and withdrawals; volunteers hear about approvals,
+declines and shifts that change or are cancelled. Services call
+`app/services/notifications.py` rather than writing rows themselves.
+
+## My Schedule
+
+HH-26 (HH-F-019, HH-F-016). `GET /api/v1/me/schedule` gives one volunteer their own
+upcoming and past shifts, the hours recorded against the past ones, and how much of this
+week's limit they hold. It reads the signed-in user, never an id from the request.
+
+Withdrawing is `POST /api/v1/signups/{id}/withdraw`, allowed up to the cutoff (24 hours by
+default) and refused after it with 409 `WITHDRAWAL_CUTOFF`. A confirmed withdrawal frees
+the slot and tells the manager.
+
+## Reminders
+
+HH-28 (HH-F-018). A background job (APScheduler) runs every few minutes and sends one
+in-app reminder for each confirmed sign-up whose shift starts within 24 hours. Sending
+stamps `signups.reminded_at`, so a restart or an overlapping run never sends a second one.
+Nothing goes out for withdrawn or declined sign-ups, cancelled shifts, or shifts that have
+already started.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `HH_REMINDERS_ENABLED` | `true` | `false` turns the job off (the tests set this) |
+| `HH_REMINDER_INTERVAL_MINUTES` | `15` | how often the job looks for due reminders |
+
+## Reports
+
+HH-32 (HH-F-021, HH-F-022). `GET /api/v1/reports/{name}` and
+`GET /api/v1/reports/{name}.csv`, where `name` is `coverage`, `hours` or `no-shows`.
+
+Both take `storeId`, `busyPeriodId`, `since` and `until`, and both build their rows the
+same way, so the download and the page cannot disagree. Coverage shows each shift's slots,
+confirmed count and remaining gap (HH-F-021). A store manager only ever sees their own
+store; asking for another store's id is 403 `STORE_FORBIDDEN`. Admins see every store, or
+one chosen with `storeId`.
+
+## Audit history
+
+HH-33 (HH-F-023, HH-SR-007). Every change to a shift, a sign-up decision, attendance or a
+user's role is recorded with who did it, what kind of thing it was about, which one, and
+when. Services call `app/services/audit.py` so the entity type always matches the action.
+
+`GET /api/v1/admin/audit` lists it for admins, filtered by `actorId`, `action`, `since`
+and `until`. The history is append-only: nothing in the app updates or deletes an event,
+and there is no endpoint that writes one, which `tests/test_audit.py` checks.
+
 ## Run the frontend locally
 
 Needs Node.js 20 or newer.
