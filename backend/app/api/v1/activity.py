@@ -9,13 +9,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import security
-from app.api.deps import require_manager, require_volunteer, shift_in_scope
+from app.api.deps import require_any_role, require_manager, require_volunteer, shift_in_scope
 from app.db.session import get_db
 from app.errors import ApiError
 from app.models import (
     Attendance,
     AuditEvent,
-    Notification,
     Shift,
     ShiftStatus,
     SignUp,
@@ -23,6 +22,7 @@ from app.models import (
     User,
 )
 from app.services import access, shifts
+from app.services import notifications as notification_service
 
 router = APIRouter(tags=["attendance and notifications"])
 
@@ -43,20 +43,35 @@ class Notice(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    shift_id: int
+    shift_id: int | None
     message: str
     created_at: datetime
+    read_at: datetime | None
 
 
-@router.get("/notifications", response_model=list[Notice])
-def notifications(user: User = Depends(require_volunteer), db: Session = Depends(get_db)):
-    return list(
-        db.scalars(
-            select(Notification)
-            .where(Notification.user_id == user.id)
-            .order_by(Notification.id.desc())
-        )
+class Notices(BaseModel):
+    """What the bell shows: the newest notices and how many are still unread (HH-27)."""
+
+    unread: int
+    notices: list[Notice]
+
+
+@router.get("/notifications", response_model=Notices)
+def list_notifications(user: User = Depends(require_any_role), db: Session = Depends(get_db)):
+    """Everyone signed in has notices: volunteers about their sign-ups, managers about theirs."""
+    return Notices(
+        unread=notification_service.unread_count(db, user),
+        notices=notification_service.for_user(db, user),
     )
+
+
+@router.post("/notifications/read", response_model=Notices)
+def mark_notifications_read(
+    user: User = Depends(require_any_role), db: Session = Depends(get_db)
+):
+    """Opening the bell marks everything shown as read, so the count goes back to zero."""
+    notification_service.mark_all_read(db, user)
+    return Notices(unread=0, notices=notification_service.for_user(db, user))
 
 
 @router.get("/shifts/{shift_id}/attendance", response_model=list[AttendanceRow])

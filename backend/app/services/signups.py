@@ -20,14 +20,13 @@ from app.errors import ApiError
 from app.models import (
     WITHDRAWAL_CUTOFF_HOURS,
     AuditEvent,
-    Notification,
     Shift,
     ShiftStatus,
     SignUp,
     SignUpStatus,
     User,
 )
-from app.services import access, eligibility, rules, shifts
+from app.services import access, eligibility, notifications, rules, shifts
 
 
 def already_signed_up() -> ApiError:
@@ -55,6 +54,9 @@ def sign_up(db: Session, volunteer: User, shift_id: int) -> SignUp:
         signup = SignUp(shift=shift, volunteer=volunteer, status=SignUpStatus.REQUESTED)
         db.add(signup)
 
+    notifications.notify_store_manager(
+        db, shift, f"{volunteer.full_name} asked to help with {shift.task}."
+    )
     try:
         db.commit()
     except IntegrityError:
@@ -95,6 +97,9 @@ def withdraw(db: Session, volunteer: User, signup_id: int) -> SignUp:
             target_id=signup.id,
             detail="Volunteer withdrew their sign-up.",
         )
+    )
+    notifications.notify_store_manager(
+        db, shift, f"{volunteer.full_name} withdrew from {shift.task}."
     )
     db.commit()
     return signup
@@ -144,7 +149,7 @@ def decide(db: Session, manager: User, signup_id: int, approve: bool) -> SignUp:
 
     signup.decided_by_id = manager.id
     signup.decided_at = now
-    db.add(Notification(user_id=signup.volunteer_id, shift_id=shift.id, message=message))
+    notifications.notify(db, signup.volunteer_id, message, shift)
     db.add(
         AuditEvent(actor_id=manager.id, action=action, target_id=signup.id, detail=message)
     )
