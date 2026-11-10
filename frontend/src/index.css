@@ -188,3 +188,14 @@ button.secondary {
   padding: 6px 0;
   border-bottom: 1px solid #e1e4e8;
 }
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+tr.gap td {
+  background: #fff8e5;
+}
