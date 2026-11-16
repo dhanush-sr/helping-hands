@@ -40,12 +40,12 @@ measured.
 dependency chain. The approval story depended on the sign-up stories, and the
 notification, schedule, reminder, reports and audit stories all depended on
 the approval story. Work that was finished could not be marked Done until its
-predecessor had merged, so completed work stayed invisible on the board and
+predecessor had merged, so completed work stayed invisible in Jira and
 the points landed together at the end instead of spreading across the sprint.
 
 **Our tracking lagged our work.** Because points are only counted at merge,
 the four flat days do not mean nobody was working — they mean nothing merged
-and nothing moved on the board. Sprint 1's retrospective had already raised
+and nothing moved in Jira. Sprint 1's retrospective had already raised
 updating Jira daily as an action item, and we did not follow through on it.
 
 ## What we will do differently
