@@ -12,6 +12,10 @@ Project: Helping Hands (HH) — Jira project `HH`, repository `dhanush-sr/helpin
 
 Both sprints delivered their full scope. Neither closed inside its timebox.
 
+Sprint 1 was closed in Jira on 31 October. Sprint 2 was tracked on the
+board throughout, but was not formally closed in Jira until 16 November,
+after the work had been delivered. Jira records that completion date.
+
 ## What the merge data shows
 
 Sprint 2 merged three issues in its first three days (11 of 52 points), then
