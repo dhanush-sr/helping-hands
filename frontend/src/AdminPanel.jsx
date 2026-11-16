@@ -7,20 +7,10 @@ import {
   listStores,
   updateStore,
 } from './api.js'
-import AuditLog from './AuditLog.jsx'
+import { StatusStamp } from './ui.jsx'
 
 // Admin pages for stores and busy periods (HH-13).
-function AdminPanel() {
-  return (
-    <>
-      <StoresAdmin />
-      <BusyPeriodsAdmin />
-      <AuditLog />
-    </>
-  )
-}
-
-function StoresAdmin() {
+export function StoresAdmin() {
   const [stores, setStores] = useState([])
   const [managers, setManagers] = useState([])
   const [form, setForm] = useState({ name: '', location: '', managerId: '' })
@@ -61,7 +51,7 @@ function StoresAdmin() {
 
   return (
     <section className="card">
-      <h2>Stores</h2>
+      <h2 className="sr-only">Stores</h2>
       <p className="error" role="alert">
         {message}
       </p>
@@ -73,6 +63,7 @@ function StoresAdmin() {
             <th scope="col">Location</th>
             <th scope="col">Manager</th>
             <th scope="col">Status</th>
+            <th scope="col"><span className="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody>
@@ -101,14 +92,16 @@ function StoresAdmin() {
                 </select>
               </td>
               <td>
+                <StatusStamp status={store.is_active ? 'ACTIVE' : 'INACTIVE'} />
+              </td>
+              <td className="cell-actions">
                 <button
                   type="button"
-                  className="secondary"
+                  className={store.is_active ? 'danger small' : 'small'}
                   onClick={() => run(() => updateStore(store.id, { is_active: !store.is_active }))}
                 >
                   {store.is_active ? 'Deactivate' : 'Activate'}
-                </button>{' '}
-                {store.is_active ? 'Active' : 'Inactive'}
+                </button>
               </td>
             </tr>
           ))}
@@ -150,7 +143,7 @@ function StoresAdmin() {
   )
 }
 
-function BusyPeriodsAdmin() {
+export function BusyPeriodsAdmin() {
   const [periods, setPeriods] = useState([])
   const [form, setForm] = useState({ name: '', startDate: '', endDate: '' })
   const [message, setMessage] = useState('')
@@ -181,7 +174,7 @@ function BusyPeriodsAdmin() {
 
   return (
     <section className="card">
-      <h2>Busy periods</h2>
+      <h2 className="sr-only">Busy periods</h2>
       <p className="error" role="alert">
         {message}
       </p>
@@ -237,4 +230,3 @@ function BusyPeriodsAdmin() {
   )
 }
 
-export default AdminPanel

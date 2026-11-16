@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { listBusyPeriods, listShifts, signUpForShift } from './api.js'
+import { EmptyNote } from './ui.jsx'
 
 const NO_FILTERS = { date: '', busyPeriodId: '', storeId: '', task: '' }
 
@@ -79,7 +80,7 @@ function ShiftList({ canSignUp = false }) {
 
   return (
     <section className="card">
-      <h2>Open shifts</h2>
+      <h2 className="sr-only">Open shifts</h2>
 
       <div className="filters">
         <div>
@@ -112,7 +113,7 @@ function ShiftList({ canSignUp = false }) {
           <label htmlFor="filter-task">Task</label>
           <input placeholder="e.g. billing" {...set('task')} />
         </div>
-        <button type="button" className="secondary" onClick={() => setFilters(NO_FILTERS)}>
+        <button type="button" className="quiet" onClick={() => setFilters(NO_FILTERS)}>
           Clear filters
         </button>
       </div>
@@ -120,9 +121,11 @@ function ShiftList({ canSignUp = false }) {
       <p className="error" role="alert">
         {error}
       </p>
-      {state === 'loading' && <p>Loading shifts…</p>}
+      {state === 'loading' && <p className="muted">Loading shifts…</p>}
       {state === 'ready' && shifts.length === 0 && !error && (
-        <p>No open shifts match these filters.</p>
+        <EmptyNote title="No open shifts match these filters">
+          Clear a filter, or check back when managers post shifts for the next busy period.
+        </EmptyNote>
       )}
 
       <ul className="shift-list" aria-live="polite">

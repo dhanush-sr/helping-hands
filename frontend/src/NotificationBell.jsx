@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Bell } from 'lucide-react'
 import { listNotifications, markNotificationsRead } from './api.js'
 
 // The bell everyone signed in sees (HH-27): a count of unread notices, and the list when
@@ -37,26 +38,36 @@ function NotificationBell() {
   }
 
   return (
-    <section className="card">
-      <button type="button" onClick={toggle} aria-expanded={open}>
-        Notifications{unread > 0 ? ` (${unread} new)` : ''}
+    <div className="bell">
+      <button
+        type="button"
+        className="icon-button"
+        onClick={toggle}
+        aria-expanded={open}
+        aria-label={`Notifications${unread > 0 ? `, ${unread} new` : ''}`}
+      >
+        <Bell aria-hidden="true" />
+        {unread > 0 && <span className="badge">{unread > 99 ? '99+' : unread}</span>}
       </button>
-      <p className="error" role="alert">
-        {error}
-      </p>
-      {open && (
-        <>
-          {notices.length === 0 && <p>Nothing yet.</p>}
-          <ul className="notices">
-            {notices.map((notice) => (
-              <li key={notice.id} className={notice.read_at ? 'muted' : ''}>
-                {notice.message}
-              </li>
-            ))}
-          </ul>
-        </>
+      {(open || error) && (
+        <div className="bell-panel">
+          <p className="error" role="alert">
+            {error}
+          </p>
+          {open && <div className="bell-title">Notifications</div>}
+          {open && notices.length === 0 && <p className="muted">Nothing yet. Sign-up news shows up here.</p>}
+          {open && (
+            <ul className="notices">
+              {notices.map((notice) => (
+                <li key={notice.id} className={notice.read_at ? 'muted' : ''}>
+                  {notice.message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
-    </section>
+    </div>
   )
 }
 

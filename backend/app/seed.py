@@ -21,7 +21,10 @@ from sqlalchemy import delete, inspect, select
 from sqlalchemy.orm import Session
 
 from app.models import (
+    Attendance,
+    AuditEvent,
     BusyPeriod,
+    Notification,
     Shift,
     ShiftStatus,
     SignUp,
@@ -92,7 +95,7 @@ def has_demo_data(session: Session) -> bool:
 
 def reset(session: Session) -> None:
     """Delete the demo-data tables, children first. The settings rows are kept."""
-    for model in (SignUp, Shift, BusyPeriod, Store, User):
+    for model in (Attendance, Notification, AuditEvent, SignUp, Shift, BusyPeriod, Store, User):
         session.execute(delete(model))
     session.commit()
 
