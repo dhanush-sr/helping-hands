@@ -1,6 +1,9 @@
 # Helping Hands (HH)
 
-**Test environment:** https://helping-hands-test.onrender.com (deployed from `main` after CI passes; see [Deployment](#deployment-test-environment)). Health check: [`/api/v1/health`](https://helping-hands-test.onrender.com/api/v1/health).
+**Running the app:** there is no hosted instance. The CD workflow builds and pushes a
+Docker image on every merge to `main`, but the deploy hook for the test environment was
+never configured, so nothing is deployed. Follow [Run the backend locally](#run-the-backend-locally)
+and [Demo data](#demo-data) to start it; the API health check is then at `/api/v1/health`.
 
 A web app for a retail chain. When stores expect heavy footfall on weekends, holidays and sale days, management staff offer to work a shift in a store. Helping Hands lets stores ask for that help, lets managers sign up for it, and records who turned up.
 
