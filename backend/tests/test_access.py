@@ -7,7 +7,7 @@ check plus the store-scope helpers). When a real endpoint lands, point its test 
 and delete the stand-in.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 from types import SimpleNamespace
 
 import bcrypt
@@ -41,6 +41,7 @@ from app.models import (
     UserRole,
 )
 from app.services import access
+from app.store_clock import STORE_TIMEZONE, store_time
 
 PASSWORD = "Test@1234"
 
@@ -106,7 +107,10 @@ def world(tmp_path):
         }
         store_a = Store(name="Store A", location="A Road", manager=users["manager_a"])
         store_b = Store(name="Store B", location="B Road", manager=users["manager_b"])
-        starts_at = datetime.now(UTC).replace(second=0, microsecond=0) + timedelta(days=7)
+        # A shift sits inside one store-local day, as the API enforces when one is posted.
+        # now + 7 days crossed midnight whenever the suite ran after 20:00 IST.
+        week_out = datetime.now(STORE_TIMEZONE).date() + timedelta(days=7)
+        starts_at = store_time(week_out, time(10))
         shift_b = Shift(
             store=store_b,
             task="Billing counter",
