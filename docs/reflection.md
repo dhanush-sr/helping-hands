@@ -7,14 +7,17 @@ Project: Helping Hands (HH) — Jira project `HH`, repository `dhanush-sr/helpin
 
 | | Committed | Delivered | Planned close | Actual close |
 |---|---|---|---|---|
-| Sprint 1 | 29 points | 29 points | 31 Oct | 1 Nov (1 day late) |
-| Sprint 2 | 52 points | 52 points | 7 Nov | 10 Nov (3 days late) |
+| Sprint 1 | 29 points | 29 points | 31 Oct, 23:00 | 1 Nov, 00:43 (under 2 hours late) |
+| Sprint 2 | 52 points | 52 points | 7 Nov, 23:00 | 10 Nov (3 days late) |
 
-Both sprints delivered their full scope. Neither closed inside its timebox.
+Both sprints delivered their full scope. Sprint 1 missed its timebox narrowly:
+its last three pull requests merged between 00:15 and 00:41 on 1 November,
+and the sprint was closed in Jira at 00:43. Sprint 2 missed by three days.
 
-Sprint 1 was closed in Jira on 31 October. Sprint 2 was tracked on the
-board throughout, but was not formally closed in Jira until 16 November,
-after the work had been delivered. Jira records that completion date.
+Sprint 2's issues were moved to Done in Jira between 3 and 12 November, but
+the sprint itself was never formally started, so Jira did not draw its
+burndown. It was started with its original dates and closed on 16 November,
+after the work had been delivered; Jira records that completion date.
 
 ## What the merge data shows
 

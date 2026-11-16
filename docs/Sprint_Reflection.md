@@ -8,7 +8,7 @@ Sprints covered: HH Sprint 1 (27-31 Oct 2026) and HH Sprint 2 (02-07 Nov 2026)
 
 Both sprints were completed and all 20 backlog issues are merged into `main` through
 reviewed pull requests with CI passing. Delivery was sound; our sprint planning and our
-tracking discipline were not. Sprint 1 overran its timebox by one day and Sprint 2 by three. This document reports that honestly rather than around it.
+tracking discipline were not. Sprint 1 overran its timebox by under two hours, closing just after midnight, and Sprint 2 by three days. This document reports that honestly rather than around it.
 
 ## 1. Did your estimations reflect the actual effort?
 

@@ -25,7 +25,7 @@ equivalent evidence is taken from the Reports views instead.
 
 | | Issues | Committed | Delivered | Planned close | Actual close |
 |---|---|---|---|---|---|
-| Sprint 1 (27–31 Oct) | 8 | 29 pts | 29 pts | 31 Oct | 1 Nov |
+| Sprint 1 (27–31 Oct) | 8 | 29 pts | 29 pts | 31 Oct, 23:00 | 1 Nov, 00:43 |
 | Sprint 2 (02–07 Nov) | 12 | 52 pts | 52 pts | 7 Nov | 10 Nov |
 | **Total** | **20** | **81 pts** | **81 pts** | | |
 
