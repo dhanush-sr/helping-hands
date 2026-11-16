@@ -18,8 +18,7 @@ Software Engineering Lab mini project, Section B, Team 14.
 - [Software Requirements Specification (SRS)](SRS_SAD_TestPlan/SRS_Helping_Hands.pdf)
 - [Software Architecture and Design Specification (SAD)](SRS_SAD_TestPlan/SAD_Helping_Hands.pdf)
 - [Software Test Plan (STP)](SRS_SAD_TestPlan/Test_Plan_Helping_Hands.pdf)
-- [Jira evidence](docs/jira/) — dashboard, product backlog, sprint backlogs, sprint progress and burndown charts
-- [Sprint reflection](docs/Sprint_Reflection.md) — estimation, prioritisation, sprint alignment and capacity, with the retrospective actions
+- [Project documentation](docs/) — sprint reflection and Jira evidence (dashboard, backlog, sprint progress, burndown charts)
 
 ## Tech stack
 | Part      | Stack                                   | Folder       |
