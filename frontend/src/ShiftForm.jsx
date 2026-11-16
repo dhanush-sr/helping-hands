@@ -89,7 +89,7 @@ function ShiftForm({ shift, onSaved, onDismiss }) {
   if (!editing && stores.length === 0 && !error) {
     return (
       <section className="card">
-        <h2>Post a shift</h2>
+        <h2 className="sr-only">Post a shift</h2>
         <p>You don&apos;t manage an active store yet. Ask an admin to assign you one.</p>
       </section>
     )
@@ -97,7 +97,7 @@ function ShiftForm({ shift, onSaved, onDismiss }) {
 
   return (
     <form className="card inline-form" onSubmit={handleSubmit}>
-      <h2>{editing ? 'Edit shift' : 'Post a shift'}</h2>
+      <h2 className={editing ? 'section-title' : 'sr-only'}>{editing ? 'Edit shift' : 'Post a shift'}</h2>
 
       {!editing && (
         <>

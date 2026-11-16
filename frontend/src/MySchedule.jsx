@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getMySchedule, withdrawSignUp } from './api.js'
-
-const STATUS_LABEL = {
-  REQUESTED: 'Waiting for the manager',
-  CONFIRMED: 'Confirmed',
-  DECLINED: 'Declined',
-  WITHDRAWN: 'Withdrawn',
-}
+import { EmptyNote, StatusStamp } from './ui.jsx'
 
 // A volunteer's own shifts (HH-26): what is coming up, what they can still drop, what they
 // have already done, and how much of the week's limit they have used.
@@ -44,23 +38,27 @@ function MySchedule({ onChanged }) {
 
   return (
     <section className="card">
-      <h2>My schedule</h2>
+      <h2 className="sr-only">My schedule</h2>
       <p className="error" role="alert">
         {error}
       </p>
-      <p className={overLimit ? 'error' : ''}>
-        {data.hoursThisWeek} of {data.weeklyHourLimit} hours held this week
-        {overLimit && ' · over the limit'}
-      </p>
+      <div className="stat">
+        <span className={`stat-number${overLimit ? ' error' : ''}`}>
+          {data.hoursThisWeek}<span className="muted"> / {data.weeklyHourLimit}</span>
+        </span>
+        <span className="label">Hours held this week{overLimit && ' · over the limit'}</span>
+      </div>
 
-      <h3>Coming up</h3>
-      {data.upcoming.length === 0 && <p>Nothing booked yet.</p>}
+      <h3 className="section-title">Coming up <span className="count">{data.upcoming.length}</span></h3>
+      {data.upcoming.length === 0 && (
+        <EmptyNote title="Nothing booked yet">Pick a shift under Find shifts and sign up.</EmptyNote>
+      )}
       <ul className="shift-list">
         {data.upcoming.map((entry) => (
           <li className="shift" key={entry.signUpId}>
             <div className="shift-head">
               <strong>{entry.task}</strong>
-              <span>{STATUS_LABEL[entry.status] ?? entry.status}</span>
+              <StatusStamp status={entry.status} />
             </div>
             <div>{entry.store}</div>
             <div>
@@ -70,7 +68,7 @@ function MySchedule({ onChanged }) {
             {entry.canWithdraw ? (
               <button
                 type="button"
-                className="secondary"
+                className="small"
                 disabled={busyId === entry.signUpId}
                 onClick={() => withdraw(entry.signUpId)}
               >
@@ -83,17 +81,16 @@ function MySchedule({ onChanged }) {
         ))}
       </ul>
 
-      <h3>Already done</h3>
-      {data.past.length === 0 && <p>No past shifts yet.</p>}
+      <h3 className="section-title">Already done <span className="count">{data.past.length}</span></h3>
+      {data.past.length === 0 && <EmptyNote title="No past shifts yet">Shifts you have worked will show here.</EmptyNote>}
       <ul className="shift-list">
         {data.past.map((entry) => (
           <li className="shift" key={entry.signUpId}>
             <div className="shift-head">
               <strong>{entry.task}</strong>
-              <span>
-                {entry.attendance === 'ATTENDED' && `Attended · ${entry.hoursWorked} hours`}
-                {entry.attendance === 'NO_SHOW' && 'Marked no-show'}
-                {!entry.attendance && 'Not recorded yet'}
+              <span className="stamp-with-note">
+                {entry.attendance === 'ATTENDED' && <span className="muted">{entry.hoursWorked} h</span>}
+                <StatusStamp status={entry.attendance ?? 'NOT_RECORDED'} />
               </span>
             </div>
             <div>

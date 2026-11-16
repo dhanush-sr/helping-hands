@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getAuditHistory, listUsers } from './api.js'
+import { EmptyNote } from './ui.jsx'
 
 const NO_FILTERS = { actor_id: '', action: '', since: '', until: '' }
 
@@ -37,7 +38,7 @@ function AuditLog() {
 
   return (
     <section className="card">
-      <h2>Audit history</h2>
+      <h2 className="sr-only">Audit history</h2>
 
       <div className="filters">
         <div>
@@ -70,7 +71,7 @@ function AuditLog() {
           <label htmlFor="audit-until">To</label>
           <input type="date" {...set('until')} />
         </div>
-        <button type="button" className="secondary" onClick={() => setFilters(NO_FILTERS)}>
+        <button type="button" className="quiet" onClick={() => setFilters(NO_FILTERS)}>
           Clear filters
         </button>
       </div>
@@ -78,8 +79,11 @@ function AuditLog() {
       <p className="error" role="alert">
         {error}
       </p>
-      {page && page.events.length === 0 && !error && <p>Nothing recorded for these filters.</p>}
+      {page && page.events.length === 0 && !error && (
+        <EmptyNote title="Nothing recorded for these filters">Clear a filter to see more of the history.</EmptyNote>
+      )}
 
+      <div className="table-scroll">
       <table>
         <thead>
           <tr>
@@ -105,6 +109,7 @@ function AuditLog() {
           ))}
         </tbody>
       </table>
+      </div>
     </section>
   )
 }

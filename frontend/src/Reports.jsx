@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { API_BASE_URL, getReport, getToken, listBusyPeriods, listStores } from './api.js'
+import { EmptyNote, StatusStamp } from './ui.jsx'
+import ReportSummary from './ReportCharts.jsx'
 
 const TABS = [
   { name: 'coverage', label: 'Coverage' },
@@ -44,7 +46,9 @@ function Reports() {
   const load = useCallback(() => {
     getReport(tab, filters)
       .then((report) => {
-        setData(report)
+        // Remember which report these rows belong to: on a tab switch the old rows are
+        // still on screen until the new ones arrive.
+        setData({ ...report, tab })
         setError('')
       })
       .catch((err) => {
@@ -87,15 +91,17 @@ function Reports() {
   }
 
   return (
-    <section className="card">
-      <h2>Reports</h2>
+    <>
+    <section className="card report-controls">
+      <h2 className="sr-only">Reports</h2>
 
       <div className="tabs">
         {TABS.map((item) => (
           <button
             key={item.name}
             type="button"
-            className={item.name === tab ? '' : 'secondary'}
+            className={item.name === tab ? 'active' : ''}
+            aria-current={item.name === tab ? 'page' : undefined}
             onClick={() => setTab(item.name)}
           >
             {item.label}
@@ -138,13 +144,21 @@ function Reports() {
           Download CSV
         </button>
       </div>
+    </section>
 
       <p className="error" role="alert">
         {error}
       </p>
-      {data && data.rows.length === 0 && !error && <p>Nothing to report for these filters.</p>}
+      {data && data.rows.length === 0 && !error && (
+        <EmptyNote title="Nothing to report for these filters">Widen the dates or pick another store.</EmptyNote>
+      )}
+
+      {data && data.rows.length > 0 && <ReportSummary tab={data.tab} rows={data.rows} />}
 
       {data && data.rows.length > 0 && (
+        <section className="card">
+        <h3 className="section-title">All rows <span className="count">{data.rows.length}</span></h3>
+        <div className="table-scroll">
         <table>
           <thead>
             <tr>
@@ -157,19 +171,20 @@ function Reports() {
           </thead>
           <tbody>
             {data.rows.map((row, index) => (
-              <tr
-                key={row.shift_id ?? row.volunteer_id ?? index}
-                className={row.open_slots > 0 ? 'gap' : ''}
-              >
+              <tr key={row.shift_id ?? row.volunteer_id ?? index}>
                 {data.columns.map((column) => (
-                  <td key={column}>{row[column] ?? ''}</td>
+                  <td key={column}>
+                    {column === 'status' ? <StatusStamp status={row[column]} /> : row[column] ?? ''}
+                  </td>
                 ))}
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
+        </section>
       )}
-    </section>
+    </>
   )
 }
 

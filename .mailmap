@@ -1,0 +1,9 @@
+# Canonical author identities. Several of us committed under more than one
+# name, and three commits were recorded with the editor's author field instead
+# of the person who wrote and committed them (git log --format=%cn shows Aamer
+# as the committer on all three). This file corrects git log and git shortlog
+# without rewriting any commit.
+Aamer Khan <aamerkhanrz@gmail.com> <codex@openai.com>
+Aamer Khan <aamerkhanrz@gmail.com> Aamer <aamerkhanrz@gmail.com>
+Bhuvan Kumar P <bhuvankumarp17@gmail.com> bhuvankumarp <bhuvankumarp17@gmail.com>
+Dhanush Shankar Reddy <dhanred0309@gmail.com> dhanush-sr <dhanred0309@gmail.com>
