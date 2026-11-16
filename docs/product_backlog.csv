@@ -1,0 +1,34 @@
+issue_key,issue_priority,issue_type,issue_summary
+HH-1,Medium,Epic,Project setup and CI/CD
+HH-10,Medium,Task,"Seed script with demo stores, users, busy periods and shifts"
+HH-11,High,Story,"As a staff member, I want to sign in and out, so that only I can act under my account"
+HH-12,High,Story,"As an admin, I want each role limited to its own actions and store, so that nobody changes another store's data"
+HH-13,High,Story,"As an admin, I want to set up stores with their manager and define busy periods, so that stores can post shifts for them"
+HH-14,High,Story,[Merged into HH-13] Define busy periods
+HH-15,High,Story,"As a store manager, I want to post a shift with date, time, task and slots, so that volunteers know what help we need"
+HH-16,High,Story,"As a volunteer, I want to filter open shifts by date, busy period, store and task, so that I find one that suits me"
+HH-17,High,Story,"As a volunteer, I want to sign up for a shift, so that the manager knows I can help"
+HH-18,High,Story,"As a store manager, I want sign-ups refused when the shift is full, too close, clashes or goes over the weekly limit, so that I only get valid requests"
+HH-19,High,Task,CD: deploy main to a test environment after CI passes
+HH-2,Medium,Epic,User access and store setup
+HH-20,High,Story,"As an admin, I want to manage users, roles and the volunteering rules, so that the right people have access and volunteering stays fair"
+HH-21,Medium,Story,"[Merged into HH-20] Set the weekly limit, notice and cutoff"
+HH-22,High,Story,"As a store manager, I want to edit or cancel a shift, so that volunteers are told when plans change"
+HH-23,Medium,Story,[Merged into HH-18] Weekly hour limit
+HH-24,Highest,Story,"As a store manager, I want to approve or decline sign-ups without ever overbooking, with the shift showing Filled or Open automatically, so that I get exactly the help I asked for"
+HH-25,Medium,Story,[Merged into HH-24] Shift shows Filled or Open automatically
+HH-26,Medium,Story,"As a volunteer, I want to see my schedule and withdraw before the cutoff, so that I can plan my week and free my slot for someone else"
+HH-27,Medium,Story,"As a user, I want in-app notifications for sign-ups, approvals and cancellations, so that I don't miss changes"
+HH-28,Medium,Story,"As a volunteer, I want a reminder 24 hours before my shift, so that I don't forget"
+HH-29,Medium,Story,[Merged into HH-26] My Schedule
+HH-3,Medium,Epic,Help requests
+HH-30,High,Story,"As a store manager, I want to mark attended or no-show with hours, so that contributions are recorded"
+HH-31,Medium,Story,[Merged into HH-32] Coverage view per busy period
+HH-32,Medium,Story,"As a store manager or admin, I want a coverage view and volunteer reports with CSV export, so that gaps are spotted early and volunteers get recognised"
+HH-33,High,Story,"As an admin, I want an audit history of every change, so that decisions can be traced"
+HH-4,Medium,Epic,Finding and signing up
+HH-5,Medium,Epic,Approval and withdrawal
+HH-6,Medium,Epic,Notifications and schedules
+HH-7,Medium,Epic,"Attendance, coverage and reports"
+HH-8,Highest,Task,"Set up repo structure, FastAPI and React skeletons, and GitHub Actions CI"
+HH-9,Highest,Task,Database models and Alembic migrations for the core entities
