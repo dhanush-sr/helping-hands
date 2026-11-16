@@ -8,8 +8,7 @@ Sprints covered: HH Sprint 1 (27-31 Oct 2026) and HH Sprint 2 (02-07 Nov 2026)
 
 Both sprints were completed and all 20 backlog issues are merged into `main` through
 reviewed pull requests with CI passing. Delivery was sound; our sprint planning and our
-tracking discipline were not. Sprint 1 finished on its last day and Sprint 2 overran its
-timebox by three days. This document reports that honestly rather than around it.
+tracking discipline were not. Sprint 1 overran its timebox by one day and Sprint 2 by three. This document reports that honestly rather than around it.
 
 ## 1. Did your estimations reflect the actual effort?
 
@@ -51,10 +50,11 @@ date. The pull request merge history is the accurate record:
 
 | Date | Pull requests merged |
 |---|---|
-| 31 Oct | #1 to #8, all of Sprint 1 |
+| 31 Oct | #1 HH-8, #2 HH-9, #3 HH-10, #4 HH-11, #5 HH-12 |
+| 01 Nov | #6 HH-13, #7 HH-15, #8 HH-16 |
 | 02-04 Nov | #9 HH-17, #10 HH-18, #11 HH-19 |
-| 09 Nov | #12 HH-20, #14 HH-22, #15 HH-30 |
-| 10 Nov | #16 HH-24, #17 HH-27, #18 HH-26, #19 HH-33, #20 HH-28, #21 HH-32 |
+| 09 Nov | #12 HH-20 |
+| 10 Nov | #14 HH-22, #15 HH-30, #16 HH-24, #17 HH-27, #18 HH-26, #19 HH-33, #20 HH-28, #21 HH-32 |
 
 Three causes, in order of impact:
 
@@ -76,8 +76,8 @@ Three causes, in order of impact:
 
 Two, one about the team and one about the chart itself.
 
-**Our sustainable capacity is about 29 points per sprint, not 52.** Sprint 1 is the only
-clean measurement we have, and we should have planned Sprint 2 against it instead of
+**Our sustainable capacity is about 29 points per sprint, not 52.** Sprint 1 is our only
+velocity measurement, and we should have planned Sprint 2 against it instead of
 against ambition. Had we committed 30 points and moved the rest to a third sprint, the
 sprint would have closed on time with the same code written.
 
@@ -93,8 +93,8 @@ overrun, so the Jira history and the Git history agree with each other.
 
 ## What went well
 
-- All 23 issues delivered, 21 pull requests, every one reviewed by a teammate before merge.
-- 238 automated backend tests passing, with lint and frontend build enforced in CI.
+- All 20 issues delivered, 21 pull requests, every one reviewed by a teammate before merge.
+- 237 automated backend tests passing, with lint and frontend build enforced in CI.
 - The no-overbooking rule (TC-CONC-01 in our Test Plan) is verified with concurrent threads
   and a database row lock, and was checked by removing the lock to confirm the test fails
   without it.
