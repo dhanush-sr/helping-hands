@@ -22,16 +22,6 @@ place them in `docs/screenshots/` using exactly these filenames:
 Both sprints are closed, so the board and backlog views are empty; the
 equivalent evidence is taken from the Reports views instead.
 
-## Burndown charts
-
-### Sprint 2 (2–7 November, 52 points)
-
-![Sprint 2 burndown](screenshots/burndown_chart.png)
-
-### Sprint 1 (27–31 October, 29 points)
-
-![Sprint 1 burndown](screenshots/burndown_sprint1.png)
-
 ## Sprint metrics
 
 | | Issues | Committed | Delivered | Planned close | Actual close |
