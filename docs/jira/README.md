@@ -37,7 +37,7 @@ single dependency chain, so finished work could not be closed until its
 predecessor had merged. Sprint 1's retrospective had already raised "update
 Jira daily" as an action item, and we did not carry it out.
 
-The corrective actions are recorded in `Sprint_Reflection_Helping_Hands.md`:
+The corrective actions are recorded in [`../Sprint_Reflection.md`](../Sprint_Reflection.md):
 cap commitment at measured velocity, break serial chains during planning,
 and connect GitHub to Jira so transitions follow merges automatically
 instead of depending on someone remembering.
