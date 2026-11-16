@@ -13,7 +13,8 @@ place them in `docs/screenshots/` using exactly these filenames:
 
 - [x] `jira_dashboard.png` — Reports view: work items by status, type and assignee
 - [x] `product_backlog.png` — work item details table (full data in `../product_backlog.csv`)
-- [x] `sprint_backlog.png` — Sprint 2 burnup report with the sprint-start work item list
+- [x] `sprint_backlog_sprint1.png` — Sprint 1 burnup report with each work item as it entered the sprint
+- [x] `sprint_backlog_sprint2.png` — Sprint 2 burnup report with the sprint-start work item list
 - [x] `sprint_progress.png` — velocity report, commitment against completed for both sprints
 - [x] `burndown_chart.png` — Sprint 2 burndown
 - [x] `burndown_sprint1.png` — Sprint 1 burndown
