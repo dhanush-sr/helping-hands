@@ -43,6 +43,10 @@ the approval story. Work that was finished could not be marked Done until its
 predecessor had merged, so completed work stayed invisible in Jira and
 the points landed together at the end instead of spreading across the sprint.
 
+The git history shows a concrete case. HH-20, HH-22 and HH-30 (11 points)
+were committed on 5 November, but merged only on 9 and 10 November, so
+they showed as unfinished for four to five days after the work was done.
+
 **Our tracking lagged our work.** Because points are only counted at merge,
 the four flat days do not mean nobody was working — they mean nothing merged
 and nothing moved in Jira. Sprint 1's retrospective had already raised
